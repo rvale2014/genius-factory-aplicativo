@@ -19,7 +19,8 @@ import {
   type AssuntoNode,
 } from "@/src/services/questoesService";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetFooter } from "@gorhom/bottom-sheet";
+import { LinearGradient } from "expo-linear-gradient";
 import type { LucideIcon } from "lucide-react-native";
 import {
   BookOpen,
@@ -36,7 +37,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ListRenderItem } from "react-native";
 import { ActivityIndicator, Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ========= Constantes =========
 const TIPOS_QUESTAO = [
@@ -53,6 +54,8 @@ const TIPOS_QUESTAO = [
   { id: "colorir_figura", nome: "Colorir figura" },
 ];
 
+const SHEET_FOOTER_HEIGHT = 88;
+
 type QuestaoCard = {
   id: string;
   codigo: string;
@@ -64,6 +67,15 @@ type QuestaoCard = {
   ano?: { nome: string } | null;
 };
 
+function summarizeLabels(labels: string[]): string | undefined {
+  const clean = labels.filter((l) => !!l.trim());
+  if (clean.length === 0) return undefined;
+  const max = 2;
+  if (clean.length <= max) return clean.join(", ");
+  const head = clean.slice(0, max).join(", ");
+  return `${head}, +${clean.length - max}`;
+}
+
 // ========= Componentes de UI =========
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <Text style={styles.sectionTitle}>{children}</Text>
@@ -74,11 +86,15 @@ const FilterRow = ({
   label,
   onPress,
   isLast,
+  summary,
+  hasSelection,
 }: {
   icon: LucideIcon;
   label: string;
   onPress?: () => void;
   isLast?: boolean;
+  summary?: string;
+  hasSelection?: boolean;
 }) => (
   <TouchableOpacity
     style={[styles.filterRow, isLast && styles.filterRowLast]}
@@ -86,16 +102,45 @@ const FilterRow = ({
     onPress={onPress}
   >
     <View style={styles.filterRowLeft}>
-      <Icon size={18} color="#1F2937" strokeWidth={2} />
-    <Text style={styles.filterRowLabel}>{label}</Text>
+      <Icon size={18} color="#4B5563" strokeWidth={2} />
+      <Text style={styles.filterRowLabel}>{label}</Text>
     </View>
-    <Text style={styles.filterRowPlus}>+</Text>
+    <View style={styles.filterRowRight}>
+      {summary ? (
+        <Text style={styles.filterRowSummary} numberOfLines={2}>
+          {summary}
+        </Text>
+      ) : null}
+      <Ionicons
+        name={hasSelection ? "pencil-outline" : "add"}
+        size={18}
+        color="#FF2E88"
+      />
+    </View>
   </TouchableOpacity>
 );
 
+function CheckboxIcon({
+  checked,
+  indeterminate,
+}: {
+  checked?: boolean;
+  indeterminate?: boolean;
+}) {
+  const active = checked || indeterminate;
+  return (
+    <View style={[styles.checkboxBase, active && styles.checkboxActive]}>
+      {checked ? (
+        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+      ) : null}
+      {indeterminate ? <View style={styles.checkboxIndeterminateBar} /> : null}
+    </View>
+  );
+}
+
 const Toggle = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
   <TouchableOpacity onPress={() => onChange(!value)} style={styles.toggleRow}>
-    <Ionicons name={value ? "checkbox" : "square-outline"} size={22} color={value ? "#2563eb" : "#444"} />
+    <CheckboxIcon checked={value} />
     <Text style={styles.toggleLabel}>{label}</Text>
   </TouchableOpacity>
 );
@@ -115,19 +160,33 @@ function MultiSelectSheet({
   onClose: () => void;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
-  const snaps = useMemo(() => ["50%", "85%"], []);
+  const snaps = useMemo(() => ['100%'], []);
+  const insets = useSafeAreaInsets();
+  const ids = useMemo(() => options.map((opt) => opt.id), [options]);
+  const allSelected = useMemo(() => ids.length > 0 && ids.every((id) => selected.includes(id)), [ids, selected]);
 
-  const toggle = useCallback((id: string) => {
-    const set = new Set(selected);
-    set.has(id) ? set.delete(id) : set.add(id);
-    onChange([...set]);
-  }, [selected, onChange]);
+  const toggle = useCallback(
+    (id: string) => {
+      const set = new Set(selected);
+      set.has(id) ? set.delete(id) : set.add(id);
+      onChange([...set]);
+    },
+    [selected, onChange]
+  );
+
+  const toggleAll = useCallback(() => {
+    if (allSelected) {
+      onChange([]);
+    } else {
+      onChange(ids);
+    }
+  }, [allSelected, ids, onChange]);
 
   const renderItem = ({ item }: { item: QuestaoOption }) => {
     const marked = selected.includes(item.id);
     return (
       <TouchableOpacity style={styles.optionRow} onPress={() => toggle(item.id)}>
-        <Ionicons name={marked ? "checkbox" : "square-outline"} size={22} color={marked ? "#2563eb" : "#444"} />
+        <CheckboxIcon checked={marked} />
         <Text style={styles.optionText}>{item.nome}</Text>
       </TouchableOpacity>
     );
@@ -136,19 +195,55 @@ function MultiSelectSheet({
   return (
     <BottomSheet
       ref={sheetRef}
-      index={1}
+      index={0}
       snapPoints={snaps}
+      topInset={insets.top}
       enablePanDownToClose
       onClose={onClose}
+      handleIndicatorStyle={{ opacity: 0.6 }}
+      backgroundStyle={styles.sheetBackground}
       backdropComponent={(p) => <BottomSheetBackdrop appearsOnIndex={0} disappearsOnIndex={-1} {...p} />}
+      footerComponent={(fp) => (
+        <BottomSheetFooter {...fp} bottomInset={0}>
+          <View style={[styles.sheetFooter, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterCancel]} onPress={onClose}>
+              <Text style={styles.sheetFooterCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterConfirm]} onPress={onClose}>
+              <Text style={styles.sheetFooterConfirmText}>Adicionar</Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheetFooter>
+      )}
     >
-      <View style={styles.sheetHeader}>
-        <Text style={styles.sheetTitle}>{title}</Text>
-        <TouchableOpacity onPress={() => sheetRef.current?.close()}>
-          <Ionicons name="close" size={22} />
-        </TouchableOpacity>
-      </View>
-      <BottomSheetFlatList data={options} keyExtractor={(o: QuestaoOption) => o.id} renderItem={renderItem} />
+      <BottomSheetFlatList
+        data={options}
+        keyExtractor={(o: QuestaoOption) => o.id}
+        renderItem={renderItem}
+        contentContainerStyle={[
+          styles.sheetListContent,
+          {
+            paddingBottom: insets.bottom + SHEET_FOOTER_HEIGHT,
+            paddingHorizontal: 20,
+          },
+        ]}
+        ListHeaderComponent={
+          <View style={styles.sheetTop}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{title}</Text>
+              <TouchableOpacity onPress={() => sheetRef.current?.close()}>
+                <Ionicons name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.sheetSelectAllRow} onPress={toggleAll}>
+            <CheckboxIcon checked={allSelected} />
+              <Text style={styles.sheetSelectAllLabel}>Selecionar todas</Text>
+            </TouchableOpacity>
+          </View>
+        }
+        stickyHeaderIndices={[0]}
+        showsVerticalScrollIndicator
+      />
     </BottomSheet>
   );
 }
@@ -176,7 +271,8 @@ function AssuntoTreeSheet({
   onClose: () => void;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
-  const snaps = useMemo(() => ["60%", "90%"], []);
+  const snaps = useMemo(() => ['100%'], []);
+  const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -186,7 +282,7 @@ function AssuntoTreeSheet({
   }, [tree]);
 
   // 1) Índice de nós e cache de descendentes (exclui nós "matéria")
-  const { nodeById, parentById, descendantsMap, directChildrenMap } = useMemo(() => {
+  const assuntosIndex = useMemo(() => {
     const idx = new Map<string, AssuntoNode>();
     const parent = new Map<string, string | null>();
     const directChildren = new Map<string, string[]>();
@@ -231,6 +327,11 @@ function AssuntoTreeSheet({
 
     return { nodeById: idx, parentById: parent, descendantsMap: cache, directChildrenMap };
   }, [tree]);
+
+  const nodeById = assuntosIndex.nodeById;
+  const parentById = assuntosIndex.parentById;
+  const descendantsMap = assuntosIndex.descendantsMap;
+  const directChildrenMap = assuntosIndex.directChildrenMap;
 
   const bucketOf = useCallback((id: string) => {
     const desc = descendantsMap.get(id) ?? [];
@@ -329,17 +430,28 @@ function AssuntoTreeSheet({
     });
   }, []);
 
+  const allSelectableIds = useMemo(() => {
+    const ids: string[] = [];
+    nodeById.forEach((node) => {
+      if (!node.isMateria) ids.push(node.id);
+    });
+    return ids;
+  }, [nodeById]);
+
+  const allSelected = useMemo(
+    () => allSelectableIds.length > 0 && allSelectableIds.every((id) => selected.includes(id)),
+    [allSelectableIds, selected]
+  );
+
+  const toggleAll = useCallback(() => {
+    if (allSelected) onChange([]);
+    else onChange(allSelectableIds);
+  }, [allSelected, allSelectableIds, onChange]);
+
   const renderItem: ListRenderItem<AssuntoTreeItem> = ({ item }) => {
     const { node, depth, isSelectable, hasChildren, expanded: isExpanded } = item;
     const selSet = new Set(selected);
     const state = isSelectable ? getTriState(node.id, selSet) : 'unchecked';
-    const iconName =
-      state === 'checked'
-        ? 'checkbox'
-        : state === 'indeterminate'
-          ? 'remove-outline'
-          : 'square-outline';
-    const iconColor = state === 'unchecked' ? '#444' : '#2563eb';
     const label = (node.titulo ?? "").trim() || node.id;
 
     return (
@@ -362,10 +474,9 @@ function AssuntoTreeSheet({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.assuntoCheckboxWrapper}
           >
-            <Ionicons
-              name={iconName as any}
-              size={22}
-              color={iconColor}
+            <CheckboxIcon
+              checked={state === "checked"}
+              indeterminate={state === "indeterminate"}
             />
           </TouchableOpacity>
         ) : (
@@ -377,7 +488,7 @@ function AssuntoTreeSheet({
           activeOpacity={0.8}
           onPress={() => {
             if (isSelectable) {
-              toggleSelection(node.id); // também aplica cascata via rótulo
+              toggleSelection(node.id);
             } else if (hasChildren) {
               toggleExpand(node.id);
             }
@@ -392,36 +503,67 @@ function AssuntoTreeSheet({
   return (
     <BottomSheet
       ref={sheetRef}
-      index={1}
+      index={0}
       snapPoints={snaps}
+      topInset={insets.top}
       enablePanDownToClose
       onClose={onClose}
+      handleIndicatorStyle={{ opacity: 0.6 }}
+      backgroundStyle={styles.sheetBackground}
       backdropComponent={(p) => <BottomSheetBackdrop appearsOnIndex={0} disappearsOnIndex={-1} {...p} />}
+      footerComponent={(fp) => (
+        <BottomSheetFooter {...fp} bottomInset={0}>
+          <View style={[styles.sheetFooter, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterCancel]} onPress={onClose}>
+              <Text style={styles.sheetFooterCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterConfirm]} onPress={onClose}>
+              <Text style={styles.sheetFooterConfirmText}>Adicionar</Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheetFooter>
+      )}
     >
-      <View style={styles.sheetHeader}>
-        <Text style={styles.sheetTitle}>{title}</Text>
-        <TouchableOpacity onPress={() => sheetRef.current?.close()}>
-          <Ionicons name="close" size={22} />
-        </TouchableOpacity>
-      </View>
-
       <BottomSheetFlatList
         data={data}
         keyExtractor={(item: AssuntoTreeItem) => item.node.id}
         renderItem={renderItem}
         extraData={selected}
+        contentContainerStyle={[
+          styles.sheetListContent,
+          {
+            paddingBottom: insets.bottom + SHEET_FOOTER_HEIGHT,
+            paddingHorizontal: 20,
+          },
+        ]}
+        ListHeaderComponent={
+          <View style={styles.sheetTop}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{title}</Text>
+              <TouchableOpacity onPress={() => sheetRef.current?.close()}>
+                <Ionicons name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.sheetSelectAllRow} onPress={toggleAll}>
+              <CheckboxIcon checked={allSelected} />
+              <Text style={styles.sheetSelectAllLabel}>Selecionar todas</Text>
+            </TouchableOpacity>
+          </View>
+        }
+        stickyHeaderIndices={[0]}
+        showsVerticalScrollIndicator
       />
     </BottomSheet>
   );
 }
 
 // ========= Lista de Questões =========
-function QuestoesList({ filtros }: { filtros: QuestoesFiltros }) {
+function QuestoesList({ filtros, onTotalChange }: { filtros: QuestoesFiltros; onTotalChange?: (total: number) => void }) {
   const [page, setPage] = useState(1);
   const pageSize = 5;
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<QuestaoCard[]>([]);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState<number>(0);
 
   const load = useCallback(async (targetPage: number, reset = false) => {
     try {
@@ -433,11 +575,12 @@ function QuestoesList({ filtros }: { filtros: QuestoesFiltros }) {
       ]);
 
       setTotal(totalCount);
+      onTotalChange?.(totalCount);
       setItems((prev) => (reset ? list.items : [...prev, ...list.items]));
     } finally {
       setLoading(false);
     }
-  }, [filtros]);
+  }, [filtros, onTotalChange]);
 
   useEffect(() => {
     // sempre que filtros mudarem, resetar paginação
@@ -507,6 +650,8 @@ export default function QuestoesScreen() {
   const [graus, setGraus] = useState<QuestaoOption[]>([]);
   const [series, setSeries] = useState<QuestaoOption[]>([]);
   const [anos, setAnos] = useState<QuestaoOption[]>([]);
+  const [totalQuestoes, setTotalQuestoes] = useState<number | null>(null);
+  const [totalLoading, setTotalLoading] = useState<boolean>(false);
 
   // assuntos árvore (dependem da(s) matéria(s))
   const [assuntosTree, setAssuntosTree] = useState<AssuntoNode[]>([]);
@@ -521,6 +666,103 @@ export default function QuestoesScreen() {
   const [selGraus, setSelGraus] = useState<string[]>([]);
   const [selSeries, setSelSeries] = useState<string[]>([]);
   const [selAnos, setSelAnos] = useState<string[]>([]);
+
+  const materiasMap = useMemo(() => {
+    const map = new Map<string, string>();
+    materias.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [materias]);
+
+  const instituicoesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    instituicoes.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [instituicoes]);
+
+  const classesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    classes.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [classes]);
+
+  const fasesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    fases.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [fases]);
+
+  const grausMap = useMemo(() => {
+    const map = new Map<string, string>();
+    graus.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [graus]);
+
+  const seriesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    series.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [series]);
+
+  const anosMap = useMemo(() => {
+    const map = new Map<string, string>();
+    anos.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, [anos]);
+
+  const tiposMap = useMemo(() => {
+    const map = new Map<string, string>();
+    TIPOS_QUESTAO.forEach((opt) => map.set(opt.id, opt.nome));
+    return map;
+  }, []);
+
+  const materiasSummary = useMemo(() => summarizeLabels(
+    selMaterias.map((id) => materiasMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selMaterias, materiasMap]);
+
+  const assuntosNomePorId = useMemo(() => {
+    const map = new Map<string, string>();
+    const walk = (nodes?: AssuntoNode[]) => {
+      (nodes ?? []).forEach((n) => {
+        if (!n) return;
+        if (!n.isMateria) map.set(n.id, (n.titulo ?? "").trim() || n.id);
+        if (n.filhos?.length) walk(n.filhos);
+      });
+    };
+    walk(assuntosTree);
+    return map;
+  }, [assuntosTree]);
+
+  const assuntosSummary = useMemo(() => summarizeLabels(
+    selAssuntos.map((id) => assuntosNomePorId.get(id) ?? "").filter(Boolean) as string[]
+  ), [selAssuntos, assuntosNomePorId]);
+
+  const tiposSummary = useMemo(() => summarizeLabels(
+    selTipos.map((id) => tiposMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selTipos, tiposMap]);
+
+  const instituicoesSummary = useMemo(() => summarizeLabels(
+    selInstituicoes.map((id) => instituicoesMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selInstituicoes, instituicoesMap]);
+
+  const classesSummary = useMemo(() => summarizeLabels(
+    selClasses.map((id) => classesMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selClasses, classesMap]);
+
+  const fasesSummary = useMemo(() => summarizeLabels(
+    selFases.map((id) => fasesMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selFases, fasesMap]);
+
+  const grausSummary = useMemo(() => summarizeLabels(
+    selGraus.map((id) => grausMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selGraus, grausMap]);
+
+  const seriesSummary = useMemo(() => summarizeLabels(
+    selSeries.map((id) => seriesMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selSeries, seriesMap]);
+
+  const anosSummary = useMemo(() => summarizeLabels(
+    selAnos.map((id) => anosMap.get(id) ?? "").filter(Boolean) as string[]
+  ), [selAnos, anosMap]);
 
   // toggles
   const [excluirSomenteErradas, setExcluirSomenteErradas] = useState(false);
@@ -634,6 +876,25 @@ useEffect(() => {
     excluirNaoComentadas,
   }), [selMaterias, selAssuntos, selTipos, selInstituicoes, selClasses, selFases, selGraus, selSeries, selAnos, excluirSomenteErradas, excluirAcertadas, excluirNaoComentadas]);
 
+  // ===== Atualiza total de questões conforme filtros =====
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setTotalLoading(true);
+      try {
+        const total = await contarQuestoes(filtros);
+        if (active) setTotalQuestoes(total);
+      } catch {
+        if (active) setTotalQuestoes(null);
+      } finally {
+        if (active) setTotalLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [filtros]);
+
   // ===== Layout =====
   const handleOpenAssunto = () => {
     if (!selMaterias.length) {
@@ -661,52 +922,68 @@ useEffect(() => {
 
   const FiltersBlock = (
     <View>
-      <SectionTitle>Filtros</SectionTitle>
-
       <View style={styles.filtersList}>
         <FilterRow
           icon={BookOpen}
           label="Matéria"
+          summary={materiasSummary}
+          hasSelection={selMaterias.length > 0}
           onPress={() => setSheet({ key: "materia", title: "Matéria" })}
         />
         <FilterRow
           icon={ListTree}
           label="Assunto"
+          summary={assuntosSummary}
+          hasSelection={selAssuntos.length > 0}
           onPress={handleOpenAssunto}
         />
         <FilterRow
           icon={ListChecks}
           label="Tipo de questão"
+          summary={tiposSummary}
+          hasSelection={selTipos.length > 0}
           onPress={() => setSheet({ key: "tipo", title: "Tipo de Questão" })}
         />
         <FilterRow
           icon={Building}
           label="Instituição"
+          summary={instituicoesSummary}
+          hasSelection={selInstituicoes.length > 0}
           onPress={() => setSheet({ key: "instituicao", title: "Instituição" })}
         />
         <FilterRow
           icon={Layers}
           label="Classe"
+          summary={classesSummary}
+          hasSelection={selClasses.length > 0}
           onPress={handleOpenClasse}
         />
         <FilterRow
           icon={Target}
           label="Fase"
+          summary={fasesSummary}
+          hasSelection={selFases.length > 0}
           onPress={handleOpenFase}
         />
         <FilterRow
           icon={Gauge}
           label="Grau de dificuldade"
+          summary={grausSummary}
+          hasSelection={selGraus.length > 0}
           onPress={() => setSheet({ key: "grau", title: "Grau de Dificuldade" })}
         />
         <FilterRow
           icon={GraduationCap}
           label="Série escolar"
+          summary={seriesSummary}
+          hasSelection={selSeries.length > 0}
           onPress={() => setSheet({ key: "serie", title: "Série Escolar" })}
         />
         <FilterRow
           icon={CalendarDays}
           label="Ano"
+          summary={anosSummary}
+          hasSelection={selAnos.length > 0}
           isLast
           onPress={() => setSheet({ key: "ano", title: "Ano" })}
         />
@@ -741,17 +1018,40 @@ useEffect(() => {
 
         {tab === "simulados" ? (
           <ScrollView contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 20 }}>
-            <SectionTitle>Criar Novo Simulado</SectionTitle>
+            <SectionTitle>Criar Simulado</SectionTitle>
 
             {FiltersBlock}
 
-            {/* bloco degradê + CTA */}
-            <View style={styles.gradientBox}>
-              <Text style={styles.gradientText}>Monte um simulado com base nos filtros selecionados</Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={() => {/* navega para fluxo de criação */}}>
-                <Text style={styles.primaryBtnText}>Gerar Simulado</Text>
-              </TouchableOpacity>
+            {/* contador + CTA */}
+    <View style={styles.simuladoCardWrapper}>
+      <LinearGradient
+        colors={["#FF3CAC", "#FF6BBB"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.simuladoCard}
+      >
+        <View>
+          {totalLoading ? (
+            <View style={styles.simuladoLoadingRow}>
+              <ActivityIndicator color="#fff" />
             </View>
+          ) : (
+            <>
+              <Text style={styles.simuladoCountValue}>
+                {(totalQuestoes ?? 0).toLocaleString("pt-BR")}
+              </Text>
+              <Text style={styles.simuladoCountLabel}>
+                Questões encontradas
+              </Text>
+            </>
+          )}
+        </View>
+        <TouchableOpacity style={styles.simuladoActionBtn} onPress={() => {/* navega para fluxo de criação */}}>
+          <Text style={styles.simuladoActionText}>Gerar simulado</Text>
+          <Ionicons name="chevron-forward" size={16} color="#FF2E88" />
+        </TouchableOpacity>
+      </LinearGradient>
+    </View>
 
             {/* botão secundário */}
             <TouchableOpacity style={styles.secondaryBtn} onPress={() => {/* navega para lista de simulados */}}>
@@ -762,7 +1062,7 @@ useEffect(() => {
           <View style={{ flex: 1 }}>
             {/* Filtros recolhidos/expandidos */}
             <TouchableOpacity style={[styles.collapsible, { paddingHorizontal: 20 }]} onPress={() => setShowPlaygroundFiltros((v) => !v)}>
-              <Text style={styles.collapsibleTitle}>Filtros</Text>
+              <Text style={styles.collapsibleTitle} />
               <Ionicons name={showPlaygroundFiltros ? "chevron-up" : "chevron-down"} size={18} />
             </TouchableOpacity>
             {showPlaygroundFiltros && (
@@ -773,7 +1073,7 @@ useEffect(() => {
 
             {/* Lista de questões */}
             <View style={{ flex: 1, paddingHorizontal: 20 }}>
-              <QuestoesList filtros={filtros} />
+              <QuestoesList filtros={filtros} onTotalChange={setTotalQuestoes} />
             </View>
           </View>
         )}
@@ -840,6 +1140,24 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
+  sheetBackground: {
+    backgroundColor: "#FFFFFF",
+  },
+  sheetContainer: {
+    flex: 1,
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  sheetTop: {
+    paddingTop: 16,
+    paddingBottom: 12,
+    gap: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+  },
+  sheetList: {
+    flex: 1,
+  },
   filterRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -860,17 +1178,86 @@ const styles = StyleSheet.create({
   },
   filterRowLabel: {
     fontSize: 15,
-    color: "#1F2937",
+    color: "#4B5563",
   },
-  filterRowPlus: {
-    fontSize: 22,
-    fontWeight: "700",
+  filterRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    flexShrink: 1,
+  },
+  filterRowSummary: {
+    flexShrink: 1,
+    textAlign: "right",
+    color: "#4B5563",
+    fontSize: 12,
+  },
+  sheetSelectAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  sheetSelectAllLabel: {
     color: "#FF2E88",
+    fontWeight: "600",
+  },
+  sheetListContent: {},
+  sheetFooter: {
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderColor: "#EEF2F7",
+    backgroundColor: "#FFFFFF",
+  },
+  sheetFooterButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  sheetFooterCancel: {
+    backgroundColor: "#F3F4F6",
+  },
+  sheetFooterCancelText: {
+    color: "#4B5563",
+    fontWeight: "600",
+  },
+  sheetFooterConfirm: {
+    backgroundColor: "#10B981",
+  },
+  sheetFooterConfirmText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 
   togglesBox: { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 10, marginTop: 12, gap: 8 },
   toggleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  toggleLabel: { fontSize: 14, color: "#222" },
+  toggleLabel: { fontSize: 14, color: "#4B5563" },
+  checkboxBase: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: "#C5D0E0",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  checkboxActive: {
+    borderColor: "#F78DBD",
+    backgroundColor: "#F78DBD",
+  },
+  checkboxIndeterminateBar: {
+    width: 12,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+  },
 
   gradientBox: { marginTop: 16, borderRadius: 16, padding: 16, backgroundColor: "#111", overflow: "hidden" },
   gradientText: { color: "#fff", marginBottom: 12 },
@@ -878,6 +1265,44 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: "#111", fontWeight: "800" },
   secondaryBtn: { marginTop: 12, paddingVertical: 12, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb" },
   secondaryBtnText: { color: "#111", fontWeight: "700" },
+
+  simuladoCardWrapper: {
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  simuladoCard: {
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  simuladoLoadingRow: {
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  simuladoCountValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  simuladoCountLabel: {
+    color: "#FFE4F7",
+  },
+  simuladoActionBtn: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  simuladoActionText: {
+    color: "#FF2E88",
+    fontWeight: "700",
+  },
 
   collapsible: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderColor: "#eee" },
   collapsibleTitle: { fontSize: 16, fontWeight: "700" },
@@ -897,7 +1322,7 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
   sheetTitle: { fontSize: 16, fontWeight: "700" },
   optionRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
-  optionText: { fontSize: 14 },
+  optionText: { fontSize: 14, color: "#4B5563" },
 
   assuntoRow: {
     flexDirection: "row",
