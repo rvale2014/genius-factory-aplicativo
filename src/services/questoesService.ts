@@ -239,3 +239,41 @@ export async function contarQuestoes(filtros: QuestoesFiltros): Promise<number> 
   return data.total;
 }
 
+// --- TIPOS ---
+export type QuestaoDetalhe = {
+  id: string;
+  codigo: string;
+  tipo: string;
+  enunciado: string;
+  imagemUrl?: string | null;
+  alternativas?: string[];            // normalizada para array de string
+  imagensAlternativas?: string[] | null;
+  respostasAceitas?: string[] | null;
+  respostaModelo?: string | null;     // dissertativa
+  orientacaoCorrecao?: string | null; // dissertativa
+  blocoRapido?: any;
+  ligarColunas?: any;
+  conteudo?: any;                     // completar / completar_topo / tabela / colorir_figura
+  materia?: { nome: string } | null;
+  grauDificuldade?: { nome: string } | null;
+  ano?: { nome: string } | null;
+  comentarioTexto?: string | null;
+  comentarioVideoUrl?: string | null;
+  dica?: string | null;
+};
+
+// --- GET POR ID ---
+export async function buscarQuestaoPorId(id: string): Promise<QuestaoDetalhe> {
+  const { data } = await api.get(`/mobile/v1/qbank/questoes/${id}`);
+
+  // alinhar com seu padrão de “normalizações leves”
+  const alternativas = Array.isArray(data?.alternativas)
+    ? data.alternativas.map((x: unknown) => String(x))
+    : [];
+
+  return {
+    ...data,
+    alternativas,
+  } as QuestaoDetalhe;
+}
+

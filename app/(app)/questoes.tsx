@@ -3,6 +3,7 @@
 // e listagem paginada (5/pg) consumindo as rotas mobile/v1 já criadas.
 
 import { AlunoHeaderSummary } from "@/components/AlunoHeaderSummary";
+import QuestaoCard, { QuestaoCardData } from "@/components/questoes/QuestaoCard";
 import { CheckboxIcon } from "@/components/shared/CheckboxIcon";
 import GenerateSimuladoSheet from "@/components/sheets/GenerateSimuladoSheet";
 import { SheetFooter } from "@/components/sheets/SheetFooter";
@@ -61,16 +62,7 @@ const TIPOS_QUESTAO = [
 
 const SHEET_FOOTER_HEIGHT = 88;
 
-type QuestaoCard = {
-  id: string;
-  codigo: string;
-  tipo: string;
-  enunciado: string;
-  imagemUrl?: string | null;
-  materia?: { nome: string } | null;
-  grauDificuldade?: { nome: string } | null;
-  ano?: { nome: string } | null;
-};
+type QuestaoListItem = QuestaoCardData;
 
 function summarizeLabels(labels: string[]): string | undefined {
   const clean = labels.filter((l) => !!l.trim());
@@ -520,7 +512,7 @@ function QuestoesList({ filtros, onTotalChange }: { filtros: QuestoesFiltros; on
   const [page, setPage] = useState(1);
   const pageSize = 5;
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<QuestaoCard[]>([]);
+  const [items, setItems] = useState<QuestaoListItem[]>([]);
   const [total, setTotal] = useState<number>(0);
 
   const load = useCallback(async (targetPage: number, reset = false) => {
@@ -528,7 +520,7 @@ function QuestoesList({ filtros, onTotalChange }: { filtros: QuestoesFiltros; on
       setLoading(true);
 
       const [list, totalCount] = await Promise.all([
-        listarQuestoes<QuestaoCard>(filtros, targetPage, pageSize),
+        listarQuestoes<QuestaoListItem>(filtros, targetPage, pageSize),
         contarQuestoes(filtros),
       ]);
 
@@ -557,20 +549,8 @@ function QuestoesList({ filtros, onTotalChange }: { filtros: QuestoesFiltros; on
         <FlatList
           data={items}
           keyExtractor={(q) => q.id}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardCode}>{item.codigo}</Text>
-                <Text style={styles.cardType}>{item.tipo}</Text>
-              </View>
-              <Text numberOfLines={4} style={styles.cardText}>{item.enunciado}</Text>
-              <View style={styles.metaRow}>
-                {!!item.materia?.nome && <Text style={styles.metaChip}>{item.materia?.nome}</Text>}
-                {!!item.grauDificuldade?.nome && <Text style={styles.metaChip}>{item.grauDificuldade?.nome}</Text>}
-                {!!item.ano?.nome && <Text style={styles.metaChip}>{item.ano?.nome}</Text>}
-              </View>
-            </View>
-          )}
+          renderItem={({ item }) => <QuestaoCard questao={item} />}
+          contentContainerStyle={{ paddingVertical: 12 }}
           ListFooterComponent={() => (
             <View style={{ padding: 16 }}>
               {canLoadMore ? (
@@ -1227,14 +1207,6 @@ const styles = StyleSheet.create({
 
   collapsible: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderColor: "#eee" },
   collapsibleTitle: { fontSize: 16, fontWeight: "700" },
-
-  card: { marginHorizontal: 4, marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: "#e5e7eb", padding: 12, backgroundColor: "#fff" },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  cardCode: { fontWeight: "800", color: "#111" },
-  cardType: { color: "#6b7280" },
-  cardText: { color: "#111" },
-  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  metaChip: { backgroundColor: "#f3f4f6", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, color: "#111" },
 
   loadMore: { borderWidth: 1, borderColor: "#e5e7eb", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
   loadMoreText: { fontWeight: "700" },
