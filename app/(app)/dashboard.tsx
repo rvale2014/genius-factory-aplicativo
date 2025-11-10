@@ -231,6 +231,33 @@ export default function DashboardScreen() {
 
   const rankingDisplay = data.aluno.posicaoGlobal > 0 ? `${data.aluno.posicaoGlobal}°` : '-';
 
+  const handleOpenUltimoSimulado = () => {
+    const simulado = data.ultimoSimulado;
+    if (!simulado) return;
+
+    const status = simulado.status;
+    const resolverStatuses = new Set([
+      'nao_iniciado',
+      'nao-iniciado',
+      'pausado',
+      'em_andamento',
+      'em-andamento',
+    ]);
+
+    if (status === 'finalizado') {
+      router.push(`/simulados/${simulado.id}/resultado`);
+      return;
+    }
+
+    if (resolverStatuses.has(status)) {
+      router.push(`/simulados/${simulado.id}/resolver`);
+      return;
+    }
+
+    // fallback
+    router.push(`/simulados/${simulado.id}/resolver`);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -493,7 +520,7 @@ export default function DashboardScreen() {
               <Text style={styles.sectionTitle}>Meus Simulados</Text>
               <Ionicons name="chevron-forward" size={20} color="#666" />
             </View>
-            <TouchableOpacity style={styles.simuladoCard}>
+            <TouchableOpacity style={styles.simuladoCard} onPress={handleOpenUltimoSimulado} activeOpacity={0.75}>
               <Text style={styles.simuladoTitle}>{data.ultimoSimulado.titulo}</Text>
               <View style={styles.simuladoInfo}>
                 <Ionicons name="book-outline" size={16} color="#666" />
@@ -521,7 +548,7 @@ export default function DashboardScreen() {
                   Status: {data.ultimoSimulado.status === 'finalizado' ? 'Finalizado' : data.ultimoSimulado.status === 'em-andamento' ? 'Em andamento' : data.ultimoSimulado.status === 'pausado' ? 'Pausado' : 'Não iniciado'}
                   {data.ultimoSimulado.desempenho !== null && ` • ${data.ultimoSimulado.desempenho}%`}
                 </Text>
-                <TouchableOpacity style={styles.simuladoButton}>
+                <TouchableOpacity style={styles.simuladoButton} onPress={handleOpenUltimoSimulado} activeOpacity={0.75}>
                   <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>

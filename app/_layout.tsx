@@ -10,6 +10,7 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { Provider as JotaiProvider, useAtomValue } from 'jotai';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { loadSession, sessionAtom } from '../src/state/session';
 
 function BootSession({ onReady }: { onReady: () => void }) {
@@ -102,7 +103,9 @@ export default function RootLayout() {
     <JotaiProvider>
       <BootSession onReady={() => setReady(true)} />
       {ready && fontsReady ? (
-        <Slot />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Slot />
+        </GestureHandlerRootView>
       ) : (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#12011b' }}>
           <ActivityIndicator size="large" color="#7A34FF" />

@@ -3,6 +3,10 @@
 // e listagem paginada (5/pg) consumindo as rotas mobile/v1 já criadas.
 
 import { AlunoHeaderSummary } from "@/components/AlunoHeaderSummary";
+import { CheckboxIcon } from "@/components/shared/CheckboxIcon";
+import GenerateSimuladoSheet from "@/components/sheets/GenerateSimuladoSheet";
+import { SheetFooter } from "@/components/sheets/SheetFooter";
+import { SheetHeader } from "@/components/sheets/SheetHeader";
 import {
   buscarAnos,
   buscarAssuntosTree,
@@ -19,8 +23,9 @@ import {
   type AssuntoNode,
 } from "@/src/services/questoesService";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetFooter } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import type { LucideIcon } from "lucide-react-native";
 import {
   BookOpen,
@@ -120,24 +125,6 @@ const FilterRow = ({
   </TouchableOpacity>
 );
 
-function CheckboxIcon({
-  checked,
-  indeterminate,
-}: {
-  checked?: boolean;
-  indeterminate?: boolean;
-}) {
-  const active = checked || indeterminate;
-  return (
-    <View style={[styles.checkboxBase, active && styles.checkboxActive]}>
-      {checked ? (
-        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-      ) : null}
-      {indeterminate ? <View style={styles.checkboxIndeterminateBar} /> : null}
-    </View>
-  );
-}
-
 const Toggle = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
   <TouchableOpacity onPress={() => onChange(!value)} style={styles.toggleRow}>
     <CheckboxIcon checked={value} />
@@ -203,17 +190,8 @@ function MultiSelectSheet({
       handleIndicatorStyle={{ opacity: 0.6 }}
       backgroundStyle={styles.sheetBackground}
       backdropComponent={(p) => <BottomSheetBackdrop appearsOnIndex={0} disappearsOnIndex={-1} {...p} />}
-      footerComponent={(fp) => (
-        <BottomSheetFooter {...fp} bottomInset={0}>
-          <View style={[styles.sheetFooter, { paddingBottom: insets.bottom + 16 }]}>
-            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterCancel]} onPress={onClose}>
-              <Text style={styles.sheetFooterCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterConfirm]} onPress={onClose}>
-              <Text style={styles.sheetFooterConfirmText}>Adicionar</Text>
-            </TouchableOpacity>
-          </View>
-        </BottomSheetFooter>
+      footerComponent={(footerProps) => (
+        <SheetFooter {...footerProps} onCancel={onClose} onConfirm={onClose} />
       )}
     >
       <BottomSheetFlatList
@@ -228,18 +206,13 @@ function MultiSelectSheet({
           },
         ]}
         ListHeaderComponent={
-          <View style={styles.sheetTop}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{title}</Text>
-              <TouchableOpacity onPress={() => sheetRef.current?.close()}>
-                <Ionicons name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.sheetSelectAllRow} onPress={toggleAll}>
-            <CheckboxIcon checked={allSelected} />
-              <Text style={styles.sheetSelectAllLabel}>Selecionar todas</Text>
-            </TouchableOpacity>
-          </View>
+          <SheetHeader
+            title={title}
+            onClose={() => sheetRef.current?.close()}
+            onSelectAll={ids.length ? toggleAll : undefined}
+            allSelected={allSelected}
+            showSelectAll={ids.length > 0}
+          />
         }
         stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator
@@ -511,17 +484,8 @@ function AssuntoTreeSheet({
       handleIndicatorStyle={{ opacity: 0.6 }}
       backgroundStyle={styles.sheetBackground}
       backdropComponent={(p) => <BottomSheetBackdrop appearsOnIndex={0} disappearsOnIndex={-1} {...p} />}
-      footerComponent={(fp) => (
-        <BottomSheetFooter {...fp} bottomInset={0}>
-          <View style={[styles.sheetFooter, { paddingBottom: insets.bottom + 16 }]}>
-            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterCancel]} onPress={onClose}>
-              <Text style={styles.sheetFooterCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.sheetFooterButton, styles.sheetFooterConfirm]} onPress={onClose}>
-              <Text style={styles.sheetFooterConfirmText}>Adicionar</Text>
-            </TouchableOpacity>
-          </View>
-        </BottomSheetFooter>
+      footerComponent={(footerProps) => (
+        <SheetFooter {...footerProps} onCancel={onClose} onConfirm={onClose} />
       )}
     >
       <BottomSheetFlatList
@@ -537,18 +501,12 @@ function AssuntoTreeSheet({
           },
         ]}
         ListHeaderComponent={
-          <View style={styles.sheetTop}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{title}</Text>
-              <TouchableOpacity onPress={() => sheetRef.current?.close()}>
-                <Ionicons name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.sheetSelectAllRow} onPress={toggleAll}>
-              <CheckboxIcon checked={allSelected} />
-              <Text style={styles.sheetSelectAllLabel}>Selecionar todas</Text>
-            </TouchableOpacity>
-          </View>
+          <SheetHeader
+            title={title}
+            onClose={() => sheetRef.current?.close()}
+            onSelectAll={toggleAll}
+            allSelected={allSelected}
+          />
         }
         stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator
@@ -641,6 +599,7 @@ function QuestoesList({ filtros, onTotalChange }: { filtros: QuestoesFiltros; on
 // ========= Tela principal =========
 export default function QuestoesScreen() {
   const [tab, setTab] = useState<"simulados" | "playground">("simulados");
+  const router = useRouter();
 
   // opções
   const [materias, setMaterias] = useState<QuestaoOption[]>([]);
@@ -666,6 +625,7 @@ export default function QuestoesScreen() {
   const [selGraus, setSelGraus] = useState<string[]>([]);
   const [selSeries, setSelSeries] = useState<string[]>([]);
   const [selAnos, setSelAnos] = useState<string[]>([]);
+  const [openSimuladoSheet, setOpenSimuladoSheet] = useState(false);
 
   const materiasMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -1046,7 +1006,10 @@ useEffect(() => {
             </>
           )}
         </View>
-        <TouchableOpacity style={styles.simuladoActionBtn} onPress={() => {/* navega para fluxo de criação */}}>
+        <TouchableOpacity
+          style={styles.simuladoActionBtn}
+          onPress={() => setOpenSimuladoSheet(true)}
+        >
           <Text style={styles.simuladoActionText}>Gerar simulado</Text>
           <Ionicons name="chevron-forward" size={16} color="#FF2E88" />
         </TouchableOpacity>
@@ -1106,6 +1069,24 @@ useEffect(() => {
         {sheet?.key === "ano" && (
           <MultiSelectSheet title={sheet.title} options={anos} selected={selAnos} onChange={setSelAnos} onClose={() => setSheet(null)} />
         )}
+
+        <GenerateSimuladoSheet
+          open={openSimuladoSheet}
+          onClose={() => setOpenSimuladoSheet(false)}
+          filtroMateriaIds={selMaterias}
+          filtroAssuntoIds={selAssuntos}
+          filtroAnoIds={selAnos}
+          filtroInstituicaoIds={selInstituicoes}
+          filtroClasseIds={selClasses}
+          filtroGrauIds={selGraus}
+          filtroSerieEscolarIds={selSeries}
+          excluirSomenteErradas={excluirSomenteErradas}
+          excluirAcertadas={excluirAcertadas}
+          onCreated={(simuladoId) => {
+            setOpenSimuladoSheet(false);
+          router.push(`/simulados/${simuladoId}/resumo`);
+          }}
+        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -1193,78 +1174,18 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     fontSize: 12,
   },
-  sheetSelectAllRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  sheetSelectAllLabel: {
-    color: "#FF2E88",
-    fontWeight: "600",
-  },
   sheetListContent: {},
-  sheetFooter: {
-    flexDirection: "row",
-    gap: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderColor: "#EEF2F7",
-    backgroundColor: "#FFFFFF",
-  },
-  sheetFooterButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  sheetFooterCancel: {
-    backgroundColor: "#F3F4F6",
-  },
-  sheetFooterCancelText: {
-    color: "#4B5563",
-    fontWeight: "600",
-  },
-  sheetFooterConfirm: {
-    backgroundColor: "#10B981",
-  },
-  sheetFooterConfirmText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
 
   togglesBox: { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 10, marginTop: 12, gap: 8 },
   toggleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   toggleLabel: { fontSize: 14, color: "#4B5563" },
-  checkboxBase: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: "#C5D0E0",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  checkboxActive: {
-    borderColor: "#F78DBD",
-    backgroundColor: "#F78DBD",
-  },
-  checkboxIndeterminateBar: {
-    width: 12,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
-  },
 
   gradientBox: { marginTop: 16, borderRadius: 16, padding: 16, backgroundColor: "#111", overflow: "hidden" },
   gradientText: { color: "#fff", marginBottom: 12 },
   primaryBtn: { backgroundColor: "#f59e0b", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
   primaryBtnText: { color: "#111", fontWeight: "800" },
   secondaryBtn: { marginTop: 12, paddingVertical: 12, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb" },
-  secondaryBtnText: { color: "#111", fontWeight: "700" },
+  secondaryBtnText: { color: "#111" },
 
   simuladoCardWrapper: {
     marginTop: 20,

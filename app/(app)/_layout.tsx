@@ -65,6 +65,24 @@ export default function AppLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="simulados/[id]/resumo"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="simulados/[id]/resolver"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="simulados/[id]/resultado"
+        options={{
+          href: null,
+        }}
+      />
       {/* Tela de home antiga - manter temporariamente para não quebrar */}
       <Tabs.Screen
         name="home"
