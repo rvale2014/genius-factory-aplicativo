@@ -68,26 +68,22 @@ export default function AppLayout() {
       <Tabs.Screen
         name="simulados/[id]/resumo"
         options={{
-          href: null,
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="simulados/[id]/resolver"
         options={{
-          href: null,
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="simulados/[id]/resultado"
         options={{
-          href: null,
-        }}
-      />
-      {/* Tela de home antiga - manter temporariamente para não quebrar */}
-      <Tabs.Screen
-        name="home"
-        options={{
-          href: null, // Oculta da tab bar
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tabs>

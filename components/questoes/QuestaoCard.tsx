@@ -1,13 +1,15 @@
 import {
   corrigirBlocoRapido,
+  corrigirColorirFigura,
   corrigirCompletar,
   corrigirCompletarTopo,
   corrigirDissertativa,
   corrigirLigarColunas,
   corrigirMultiplaEscolhaOuCertaErrada,
   corrigirSelecaoMultipla,
+  corrigirTabela,
 } from "@/src/services/respostasService";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -20,9 +22,11 @@ import {
 } from "react-native";
 import RenderHTML from "react-native-render-html";
 import BlocoRapidoAluno from "./BlocoRapidoAluno";
+import ColorirFiguraAluno, { ConteudoColorir } from "./ColorirFiguraAluno";
 import CompletarAluno from "./CompletarAluno";
 import CompletarTopoAluno, { ConteudoCompletarTopo } from "./CompletarTopoAluno";
 import LigarColunasAluno from "./LigarColunasAluno";
+import QuestaoTabela from "./QuestaoTabela";
 import SelecaoMultiplaAluno, { SelecaoMultiplaAlternativa } from "./SelecaoMultiplaAluno";
 
 export type QuestaoCardData = {
@@ -147,6 +151,8 @@ export function QuestaoCard({ questao }: Props) {
   const isSelecaoMultipla = questao.tipo === "selecao_multipla";
   const isCompletar = questao.tipo === "completar";
   const isCompletarTopo = questao.tipo === "completar_topo";
+  const isTabela = questao.tipo === "tabela";
+  const isColorir = questao.tipo === "colorir_figura";
   
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [respostaTexto, setRespostaTexto] = useState("");
@@ -164,6 +170,11 @@ export function QuestaoCard({ questao }: Props) {
     ordemTopo: string[];
   }>({ respostasAluno: [], ordemTopo: [] });
   const [feedbacksCompletarTopo, setFeedbacksCompletarTopo] = useState<Record<string, boolean>>({});
+  const [respostasTabela, setRespostasTabela] = useState<any>(null);
+  const [feedbacksTabela, setFeedbacksTabela] = useState<any>(null);
+  const [respostasColorir, setRespostasColorir] = useState<{ partesMarcadas: string[] }>({
+    partesMarcadas: [],
+  });
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<
     | null
@@ -382,6 +393,26 @@ export function QuestaoCard({ questao }: Props) {
     };
   }, [isCompletarTopo, questao.conteudo, questao.id]);
 
+  const tabelaConteudo = useMemo(() => {
+    if (!isTabela) return null;
+    return parseConteudo(questao.conteudo);
+  }, [isTabela, questao.conteudo]);
+
+  const colorirConteudo = useMemo<ConteudoColorir | null>(() => {
+    if (!isColorir) return null;
+    const conteudo = parseConteudo(questao.conteudo);
+    if (!conteudo || typeof conteudo !== "object") return null;
+    return conteudo as ConteudoColorir;
+  }, [isColorir, questao.conteudo]);
+
+  useEffect(() => {
+    if (!isColorir) {
+      setRespostasColorir({ partesMarcadas: [] });
+    } else if (!colorirConteudo) {
+      setRespostasColorir({ partesMarcadas: [] });
+    }
+  }, [isColorir, colorirConteudo, questao.id]);
+
   const handleCompletarTopoChange = useCallback(
     (snapshot: { respostasAluno: Array<{ lacunaId: string; valor: string }>; ordemTopo: string[] }) => {
       setRespostasCompletarTopo(snapshot);
@@ -392,6 +423,25 @@ export function QuestaoCard({ questao }: Props) {
       }
     },
     [feedbacksCompletarTopo],
+  );
+
+  const handleTabelaChange = useCallback(
+    (next: any) => {
+      setRespostasTabela(next);
+      setValidationError(null);
+      setFeedback(null);
+      setFeedbacksTabela(null);
+    },
+    [],
+  );
+
+  const handleColorirChange = useCallback(
+    (value: { partesMarcadas: string[] }) => {
+      setRespostasColorir(value);
+      setValidationError(null);
+      setFeedback(null);
+    },
+    [],
   );
 
   async function handleResponder() {
@@ -453,6 +503,16 @@ export function QuestaoCard({ questao }: Props) {
       }
     }
 
+    if (isTabela && !tabelaConteudo) {
+      setValidationError("Conteúdo da questão indisponível.");
+      return;
+    }
+
+    if (isColorir && !colorirConteudo) {
+      setValidationError("Conteúdo da questão indisponível.");
+      return;
+    }
+
     setValidationError(null);
     setSubmitting(true);
     setFeedback(null);
@@ -498,6 +558,15 @@ export function QuestaoCard({ questao }: Props) {
         const result = await corrigirCompletarTopo(questao.id, respostasCompletarTopo.respostasAluno);
         setFeedback({ status: "ok", acertou: !!result?.acertou });
         setFeedbacksCompletarTopo(result?.resultadoCorrecao?.porLacuna ?? {});
+      } else if (isTabela) {
+        const payload = respostasTabela ?? {};
+        const result = await corrigirTabela(questao.id, payload);
+        setFeedback({ status: "ok", acertou: !!result?.acertou });
+        const correcoes = (result as any)?.resultadoCorrecao ?? (result as any)?.feedbacks ?? null;
+        setFeedbacksTabela(correcoes);
+      } else if (isColorir && colorirConteudo) {
+        const result = await corrigirColorirFigura(questao.id, respostasColorir.partesMarcadas ?? []);
+        setFeedback({ status: "ok", acertou: !!result?.acertou });
       }
     } catch (error) {
       setFeedback({ status: "erro", msg: "Não foi possível corrigir agora. Tente novamente." });
@@ -657,6 +726,25 @@ export function QuestaoCard({ questao }: Props) {
         />
       )}
 
+      {isTabela && tabelaConteudo && (
+        <QuestaoTabela
+          respondido={respondido}
+          conteudo={tabelaConteudo}
+          respostasAluno={respostasTabela}
+          setRespostasAluno={handleTabelaChange}
+          feedbacks={respondido ? feedbacksTabela : undefined}
+        />
+      )}
+
+    {isColorir && colorirConteudo && (
+      <ColorirFiguraAluno
+        respondido={respondido}
+        conteudo={colorirConteudo}
+        respostasAluno={respostasColorir}
+        setRespostasAluno={handleColorirChange}
+      />
+    )}
+
       {isCompletar && completarFrases.length > 0 && (
         <CompletarAluno
           respondido={respondido}
@@ -668,7 +756,7 @@ export function QuestaoCard({ questao }: Props) {
       )}
 
       {/* Botão Responder e feedback */}
-      {(isObjetiva || isDissertativa || isBlocoRapido || isLigarColunas || isSelecaoMultipla || isCompletar || isCompletarTopo) && (
+      {(isObjetiva || isDissertativa || isBlocoRapido || isLigarColunas || isSelecaoMultipla || isCompletar || isCompletarTopo || isTabela || isColorir) && (
         <View style={styles.responderArea}>
           {validationError ? <Text style={styles.validation}>{validationError}</Text> : null}
           
@@ -745,8 +833,8 @@ export function QuestaoCard({ questao }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 12,
+    padding: 14,
     gap: 12,
     shadowColor: "#000",
     shadowOpacity: 0.04,

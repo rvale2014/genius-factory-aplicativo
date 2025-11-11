@@ -57,7 +57,7 @@ export default function LoginScreen(): React.ReactElement {
       await saveSession({ accessToken, refreshToken });
       setSession({ accessToken, refreshToken });
 
-      router.replace('/(app)/home');
+      router.replace('/(app)/dashboard');
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 401) {

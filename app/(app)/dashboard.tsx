@@ -363,7 +363,12 @@ export default function DashboardScreen() {
         {/* 3. Cards de Navegação */}
         <View style={styles.section}>
           <View style={styles.cardsGrid}>
-            <TouchableOpacity style={styles.navCard}>
+            <TouchableOpacity
+              style={styles.navCard}
+              onPress={() => router.push('/(app)/questoes')}
+              accessibilityRole="button"
+              accessibilityLabel="Ir para Questões"
+            >
               <View style={[styles.navCardIcon, { backgroundColor: '#FFF0F8' }]}>
                 <BookOpen size={22} color="#FF5FDB" strokeWidth={2} />
               </View>
