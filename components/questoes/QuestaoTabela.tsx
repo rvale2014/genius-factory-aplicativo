@@ -170,6 +170,13 @@ type PropsCruz = {
   feedbacks?: { corretas: (boolean | null)[][] };
 };
 
+type SlotDetectado = {
+  linha: number;
+  coluna: number;
+  direcao: 'horizontal' | 'vertical';
+  celulas: Array<{ linha: number; coluna: number }>;
+};
+
 function CruzadinhaAluno({
   respondido,
   conteudo,
@@ -289,17 +296,87 @@ function CruzadinhaAluno({
     setRespostasAluno({ celulas: next });
   };
 
-  // Detecta perguntas horizontais e verticais
-  const { horizontais, verticais } = useMemo(() => {
-    const perguntas = Array.isArray(conteudo?.perguntas) ? conteudo.perguntas : [];
+  const slotsDetectados = useMemo<SlotDetectado[]>(() => {
+    const mask = Array.isArray(conteudo?.mascaraAtiva) ? conteudo.mascaraAtiva : [];
+    const rows = mask.length;
+    if (rows === 0) return [];
+    const cols = mask[0]?.length ?? 0;
+    if (cols === 0) return [];
 
-    const resolverOrientacao = (pergunta: any): 'horizontal' | 'vertical' => {
-      const orientacaoStr = typeof pergunta?.orientacao === 'string' ? pergunta.orientacao.toLowerCase() : null;
+    const res: SlotDetectado[] = [];
+
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        const active = !!mask[r]?.[c];
+        const leftBlocked = c === 0 || !mask[r]?.[c - 1];
+        if (!active || !leftBlocked) continue;
+
+        let cc = c;
+        const celulas: Array<{ linha: number; coluna: number }> = [];
+        while (cc < cols && !!mask[r]?.[cc]) {
+          celulas.push({ linha: r, coluna: cc });
+          cc += 1;
+        }
+
+        if (celulas.length >= 2) {
+          res.push({
+            linha: r,
+            coluna: c,
+            direcao: 'horizontal',
+            celulas,
+          });
+        }
+      }
+    }
+
+    for (let c = 0; c < cols; c += 1) {
+      for (let r = 0; r < rows; r += 1) {
+        const active = !!mask[r]?.[c];
+        const topBlocked = r === 0 || !mask[r - 1]?.[c];
+        if (!active || !topBlocked) continue;
+
+        let rr = r;
+        const celulas: Array<{ linha: number; coluna: number }> = [];
+        while (rr < rows && !!mask[rr]?.[c]) {
+          celulas.push({ linha: rr, coluna: c });
+          rr += 1;
+        }
+
+        if (celulas.length >= 2) {
+          res.push({
+            linha: r,
+            coluna: c,
+            direcao: 'vertical',
+            celulas,
+          });
+        }
+      }
+    }
+
+    return res;
+  }, [conteudo?.mascaraAtiva]);
+
+  const {
+    mapaNumeros,
+    totalHorizontais,
+    perguntasOrdenadas,
+    numeroDirecoes,
+  } = useMemo(() => {
+    const map = new Map<string, number[]>();
+    const numeroDirecaoMap = new Map<number, 'horizontal' | 'vertical'>();
+    const horizontaisSlots = slotsDetectados.filter((slot) => slot.direcao === 'horizontal');
+    const verticaisSlots = slotsDetectados.filter((slot) => slot.direcao === 'vertical');
+    const perguntas = Array.isArray(conteudo?.perguntas) ? conteudo.perguntas : [];
+    const perguntasUsadas = new Set<number>();
+
+    const resolverOrientacaoPergunta = (pergunta: any): 'horizontal' | 'vertical' | null => {
+      const orientacaoStr =
+        typeof pergunta?.orientacao === 'string' ? pergunta.orientacao.toLowerCase() : null;
       if (orientacaoStr === 'horizontal' || orientacaoStr === 'vertical') {
         return orientacaoStr;
       }
 
-      const slot = pergunta?.slotId?.toString().toUpperCase?.();
+      const slot = pergunta?.slotId?.toString?.().toUpperCase?.();
       if (slot?.startsWith('H')) return 'horizontal';
       if (slot?.startsWith('V')) return 'vertical';
 
@@ -317,151 +394,191 @@ function CruzadinhaAluno({
         }
       }
 
-      return 'horizontal';
+      return null;
     };
 
-    const horizontaisArr: any[] = [];
-    const verticaisArr: any[] = [];
-    perguntas.forEach((pergunta) => {
-      const orientacao = resolverOrientacao(pergunta);
-      if (orientacao === 'horizontal') {
-        horizontaisArr.push(pergunta);
-      } else {
-        verticaisArr.push(pergunta);
-      }
-    });
-
-    return { horizontais: horizontaisArr, verticais: verticaisArr };
-  }, [conteudo?.perguntas]);
-
-  const { mapaNumeros, totalHorizontais } = useMemo(() => {
-    const adicionarNumero = (
-      destino: Map<string, number[]>,
-      celula: { linha: number; coluna: number } | null,
-      numero: number,
-    ) => {
-      if (!celula || typeof celula.linha !== 'number' || typeof celula.coluna !== 'number') return;
-      const key = `${celula.linha}-${celula.coluna}`;
-      const existente = destino.get(key) ?? [];
-      destino.set(key, [...existente, numero]);
-    };
-
-    const obterCelulaInicial = (
+    const obterInicioPergunta = (
       pergunta: any,
-      orientacao: 'horizontal' | 'vertical',
+      direcao: 'horizontal' | 'vertical',
     ): { linha: number; coluna: number } | null => {
       const celulas = Array.isArray(pergunta?.celulas) ? pergunta.celulas : [];
       if (celulas.length === 0) return null;
 
-      let selecionada: { linha: number; coluna: number } | null = null;
-      for (const item of celulas) {
-        if (typeof item?.linha !== 'number' || typeof item?.coluna !== 'number') continue;
-        if (!selecionada) {
-          selecionada = { linha: item.linha, coluna: item.coluna };
-          continue;
+      return celulas.reduce(
+        (acc: { linha: number; coluna: number } | null, atual: { linha?: number; coluna?: number }) => {
+        if (typeof atual?.linha !== 'number' || typeof atual?.coluna !== 'number') return acc;
+        if (!acc) {
+          return { linha: atual.linha, coluna: atual.coluna };
         }
 
-        if (orientacao === 'horizontal') {
-          if (item.linha < selecionada.linha) {
-            selecionada = { linha: item.linha, coluna: item.coluna };
-            continue;
+        if (direcao === 'horizontal') {
+          if (atual.linha < acc.linha) return { linha: atual.linha, coluna: atual.coluna };
+          if (atual.linha === acc.linha && atual.coluna < acc.coluna) {
+            return { linha: atual.linha, coluna: atual.coluna };
           }
-          if (item.linha === selecionada.linha && item.coluna < selecionada.coluna) {
-            selecionada = { linha: item.linha, coluna: item.coluna };
-          }
-        } else {
-          if (item.coluna < selecionada.coluna) {
-            selecionada = { linha: item.linha, coluna: item.coluna };
-            continue;
-          }
-          if (item.coluna === selecionada.coluna && item.linha < selecionada.linha) {
-            selecionada = { linha: item.linha, coluna: item.coluna };
-          }
+          return acc;
         }
-      }
 
-      return selecionada;
+        if (atual.linha < acc.linha) return { linha: atual.linha, coluna: atual.coluna };
+        if (atual.linha === acc.linha && atual.coluna < acc.coluna) {
+          return { linha: atual.linha, coluna: atual.coluna };
+        }
+        return acc;
+        },
+        null,
+      );
     };
 
-    const map = new Map<string, number[]>();
-
-    horizontais.forEach((pergunta, index) => {
-      const celula = obterCelulaInicial(pergunta, 'horizontal');
-      adicionarNumero(map, celula, index + 1);
-    });
-
-    const inicioVertical = horizontais.length + 1;
-    verticais.forEach((pergunta, index) => {
-      const celula = obterCelulaInicial(pergunta, 'vertical');
-      adicionarNumero(map, celula, inicioVertical + index);
-    });
-
-    if (map.size === 0) {
-      const grid = Array.isArray(conteudo?.mascaraAtiva) ? conteudo.mascaraAtiva : [];
-      const linhas = grid.length;
-      const colunas = grid[0]?.length ?? 0;
-
-      let horizontalCount = 0;
-      for (let i = 0; i < linhas; i += 1) {
-        for (let j = 0; j < colunas; j += 1) {
-          const ativo = grid[i]?.[j];
-          if (!ativo) continue;
-          const inicioHorizontal = (!grid[i]?.[j - 1]) && !!grid[i]?.[j + 1];
-          if (inicioHorizontal) horizontalCount += 1;
+    const encontrarPerguntaParaSlot = (
+      slot: SlotDetectado,
+      direcao: 'horizontal' | 'vertical',
+    ):
+      | {
+          pergunta: any;
+          indice: number;
+        }
+      | null => {
+      for (let idx = 0; idx < perguntas.length; idx += 1) {
+        if (perguntasUsadas.has(idx)) continue;
+        const pergunta = perguntas[idx];
+        const orientacaoPergunta = resolverOrientacaoPergunta(pergunta);
+        if (orientacaoPergunta && orientacaoPergunta !== direcao) continue;
+        const inicio = obterInicioPergunta(pergunta, direcao);
+        if (inicio && inicio.linha === slot.linha && inicio.coluna === slot.coluna) {
+          return { pergunta, indice: idx };
         }
       }
+      return null;
+    };
 
-      let horizontalIndice = 1;
-      let verticalIndice = horizontalCount + 1;
+    const consumirPrimeiraPerguntaDisponivel = (
+      direcao: 'horizontal' | 'vertical',
+    ):
+      | {
+          pergunta: any;
+          indice: number;
+        }
+      | null => {
+      for (let idx = 0; idx < perguntas.length; idx += 1) {
+        if (perguntasUsadas.has(idx)) continue;
+        const pergunta = perguntas[idx];
+        const orientacaoPergunta = resolverOrientacaoPergunta(pergunta);
+        if (orientacaoPergunta && orientacaoPergunta !== direcao) continue;
+        perguntasUsadas.add(idx);
+        return { pergunta, indice: idx };
+      }
+      return null;
+    };
 
-      for (let i = 0; i < linhas; i += 1) {
-        for (let j = 0; j < colunas; j += 1) {
-          const ativo = grid[i]?.[j];
-          if (!ativo) continue;
+    const perguntasComNumero: any[] = [];
 
-          const inicioHorizontal = (!grid[i]?.[j - 1]) && !!grid[i]?.[j + 1];
-          const inicioVertical = (!(grid[i - 1]?.[j])) && !!(grid[i + 1]?.[j]);
+    horizontaisSlots.forEach((slot, index) => {
+      const numero = index + 1;
+      const key = `${slot.linha}-${slot.coluna}`;
+      const existente = map.get(key) ?? [];
+      map.set(key, [...existente, numero]);
+      numeroDirecaoMap.set(numero, 'horizontal');
 
-          const key = `${i}-${j}`;
-          if (inicioHorizontal) {
-            const existente = map.get(key) ?? [];
-            map.set(key, [...existente, horizontalIndice]);
-            horizontalIndice += 1;
-          }
-
-          if (inicioVertical) {
-            const existente = map.get(key) ?? [];
-            map.set(key, [...existente, verticalIndice]);
-            verticalIndice += 1;
-          }
+      const match = encontrarPerguntaParaSlot(slot, 'horizontal');
+      if (match) {
+        perguntasUsadas.add(match.indice);
+        perguntasComNumero.push({
+          ...match.pergunta,
+          numero,
+          direcao: 'horizontal' as const,
+        });
+      } else {
+        const fallback = consumirPrimeiraPerguntaDisponivel('horizontal');
+        if (fallback) {
+          perguntasComNumero.push({
+            ...fallback.pergunta,
+            numero,
+            direcao: 'horizontal' as const,
+          });
+        } else {
+          perguntasComNumero.push({
+            numero,
+            direcao: 'horizontal' as const,
+          });
         }
       }
+    });
 
-      if (map.size === 0) {
-        return { mapaNumeros: {}, totalHorizontais: horizontalCount };
+    const inicioVertical = horizontaisSlots.length + 1;
+    verticaisSlots.forEach((slot, index) => {
+      const numero = inicioVertical + index;
+      const key = `${slot.linha}-${slot.coluna}`;
+      const existente = map.get(key) ?? [];
+      map.set(key, [...existente, numero]);
+      numeroDirecaoMap.set(numero, 'vertical');
+
+      const match = encontrarPerguntaParaSlot(slot, 'vertical');
+      if (match) {
+        perguntasUsadas.add(match.indice);
+        perguntasComNumero.push({
+          ...match.pergunta,
+          numero,
+          direcao: 'vertical' as const,
+        });
+      } else {
+        const fallback = consumirPrimeiraPerguntaDisponivel('vertical');
+        if (fallback) {
+          perguntasComNumero.push({
+            ...fallback.pergunta,
+            numero,
+            direcao: 'vertical' as const,
+          });
+        } else {
+          perguntasComNumero.push({
+            numero,
+            direcao: 'vertical' as const,
+          });
+        }
       }
+    });
 
-      return {
-        mapaNumeros: Array.from(map.entries()).reduce<Record<string, number[]>>((acc, [key, value]) => {
-          acc[key] = value;
-          return acc;
-        }, {}),
-        totalHorizontais: horizontalCount,
-      };
-    }
-
-    return {
-      mapaNumeros: Array.from(map.entries()).reduce<Record<string, number[]>>((acc, [key, value]) => {
+    const mapaNumerosObj = Array.from(map.entries()).reduce<Record<string, number[]>>(
+      (acc, [key, value]) => {
         acc[key] = value;
         return acc;
-      }, {}),
-      totalHorizontais: horizontais.length,
+      },
+      {},
+    );
+
+    const numeroDirecoesObj = Array.from(
+      numeroDirecaoMap.entries(),
+    ).reduce<Record<number, 'horizontal' | 'vertical'>>((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+
+    // Garante ordenação crescente pelo número atribuído
+    perguntasComNumero.sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0));
+
+    return {
+      mapaNumeros: mapaNumerosObj,
+      totalHorizontais: horizontaisSlots.length,
+      perguntasOrdenadas: perguntasComNumero,
+      numeroDirecoes: numeroDirecoesObj,
     };
-  }, [conteudo?.mascaraAtiva, horizontais, verticais]);
+  }, [slotsDetectados, conteudo?.perguntas]);
 
   const numerosPorCelula = mapaNumeros;
-  const totalHorizontaisParaListas = totalHorizontais > 0 ? totalHorizontais : horizontais.length;
-  const verticalNumeroInicial = totalHorizontaisParaListas + 1;
+  const numeroDirecoesPorNumero = numeroDirecoes;
+  const perguntasHorizontais = useMemo(
+    () =>
+      Array.isArray(perguntasOrdenadas)
+        ? perguntasOrdenadas.filter((p) => p.direcao === 'horizontal')
+        : [],
+    [perguntasOrdenadas],
+  );
+  const perguntasVerticais = useMemo(
+    () =>
+      Array.isArray(perguntasOrdenadas)
+        ? perguntasOrdenadas.filter((p) => p.direcao === 'vertical')
+        : [],
+    [perguntasOrdenadas],
+  );
 
   return (
     <ScrollView>
@@ -472,7 +589,16 @@ function CruzadinhaAluno({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.cruzHorizontalContent}
         >
-          <View style={styles.cruzGrid}>
+          <View
+            style={[
+              styles.cruzGrid,
+              {
+                paddingTop: numeroBadgeSpacing,
+                paddingLeft: numeroBadgeSpacing,
+                paddingRight: numeroBadgeSpacing,
+              },
+            ]}
+          >
             {init.map((row, i) => (
               <View key={i} style={styles.cruzRow}>
                 {row.map((cell, j) => {
@@ -503,11 +629,13 @@ function CruzadinhaAluno({
                     <View key={j} style={[styles.cruzCell, cellMetricStyle, cellStyle]}>
                       {Array.isArray(numeros)
                         ? numeros.map((numero, numeroIdx) => {
-                            const horizontal =
-                              horizontais.some((pergunta, idx) => idx + 1 === numero) ||
-                              (!conteudo?.perguntas && numeroIdx === 0);
-                            const offsetLeft = horizontal ? -cellConfig.size * 0.65 : 2 + numeroIdx * numeroBadgeSpacing;
-                            const offsetTop = horizontal ? 2 : -cellConfig.size * 0.65;
+                            const direcaoNumero = numeroDirecoesPorNumero?.[numero];
+                            const isHorizontalNumero =
+                              direcaoNumero === 'horizontal' || (!direcaoNumero && numeroIdx === 0);
+                            const offsetLeft = isHorizontalNumero
+                              ? -cellConfig.size * 0.65
+                              : 2 + numeroIdx * numeroBadgeSpacing;
+                            const offsetTop = isHorizontalNumero ? 2 : -cellConfig.size * 0.65;
                             return (
                               <View
                                 key={`${numero}-${numeroIdx}`}
@@ -548,14 +676,14 @@ function CruzadinhaAluno({
         </ScrollView>
 
         {/* Perguntas */}
-        {conteudo.perguntas && conteudo.perguntas.length > 0 && (
+        {perguntasOrdenadas && perguntasOrdenadas.length > 0 && (
           <View style={styles.perguntasContainer}>
-            {horizontais.length > 0 && (
+            {perguntasHorizontais.length > 0 && (
               <View style={styles.perguntasSecao}>
                 <Text style={styles.perguntasTitle}>Horizontais:</Text>
-                {horizontais.map((p, idx) => (
-                  <View key={p.id || idx} style={styles.perguntaItem}>
-                    <Text style={styles.perguntaNumero}>{idx + 1}.</Text>
+                {perguntasHorizontais.map((p) => (
+                  <View key={p.id || p.numero} style={styles.perguntaItem}>
+                    <Text style={styles.perguntaNumero}>{p.numero}.</Text>
                     <Text style={styles.perguntaTexto}>
                       {p.enunciado || 'Sem enunciado'}
                     </Text>
@@ -564,12 +692,12 @@ function CruzadinhaAluno({
               </View>
             )}
 
-            {verticais.length > 0 && (
+            {perguntasVerticais.length > 0 && (
               <View style={styles.perguntasSecao}>
                 <Text style={styles.perguntasTitle}>Verticais:</Text>
-                {verticais.map((p, idx) => (
-                  <View key={p.id || idx} style={styles.perguntaItem}>
-                    <Text style={styles.perguntaNumero}>{verticalNumeroInicial + idx}.</Text>
+                {perguntasVerticais.map((p) => (
+                  <View key={p.id || p.numero} style={styles.perguntaItem}>
+                    <Text style={styles.perguntaNumero}>{p.numero}.</Text>
                     <Text style={styles.perguntaTexto}>
                       {p.enunciado || 'Sem enunciado'}
                     </Text>
