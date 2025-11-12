@@ -1,5 +1,6 @@
 // components/EstatisticasQuestao.tsx
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '@/src/lib/api';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -8,10 +9,11 @@ type Props = {
 };
 
 type Estatisticas = {
-  totalTentativas: number;
-  totalAcertos: number;
-  percentualAcerto: number;
-  mediaTempoResposta: number;
+  tipo: string;
+  acertos: number;
+  erros: number;
+  alternativas?: { letra: string; total: number }[];
+  notas?: number[];
 };
 
 export default function EstatisticasQuestao({ questaoId }: Props) {
@@ -23,18 +25,9 @@ export default function EstatisticasQuestao({ questaoId }: Props) {
     async function fetchStats() {
       setLoading(true);
       setError(null);
-
+    
       try {
-        // TODO: Substituir pela sua API real quando estiver pronta
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/qbank/estatisticas?questaoId=${questaoId}`
-        );
-
-        if (!response.ok) {
-          throw new Error('Falha ao carregar estatísticas');
-        }
-
-        const data = await response.json();
+        const { data } = await api.get(`/mobile/v1/qbank/estatisticas/${questaoId}`);
         setStats(data);
       } catch (err) {
         setError('Não foi possível carregar as estatísticas.');
@@ -74,6 +67,21 @@ export default function EstatisticasQuestao({ questaoId }: Props) {
     );
   }
 
+  // ✅ Calcular métricas
+  const totalTentativas = stats.acertos + stats.erros;
+  const percentualAcerto = totalTentativas > 0 
+    ? (stats.acertos / totalTentativas) * 100 
+    : 0;
+
+  // Se não tem tentativas, não mostra nada
+  if (totalTentativas === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Ainda não há respostas para esta questão.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Estatísticas da Questão</Text>
@@ -81,26 +89,26 @@ export default function EstatisticasQuestao({ questaoId }: Props) {
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
           <Ionicons name="people-outline" size={24} color="#7C3AED" />
-          <Text style={styles.statValue}>{stats.totalTentativas}</Text>
+          <Text style={styles.statValue}>{totalTentativas}</Text>
           <Text style={styles.statLabel}>Tentativas</Text>
         </View>
 
         <View style={styles.statCard}>
           <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
-          <Text style={styles.statValue}>{stats.totalAcertos}</Text>
+          <Text style={styles.statValue}>{stats.acertos}</Text>
           <Text style={styles.statLabel}>Acertos</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="stats-chart-outline" size={24} color="#F59E0B" />
-          <Text style={styles.statValue}>{stats.percentualAcerto.toFixed(1)}%</Text>
-          <Text style={styles.statLabel}>Taxa de Acerto</Text>
+          <Ionicons name="close-circle-outline" size={24} color="#EF4444" />
+          <Text style={styles.statValue}>{stats.erros}</Text>
+          <Text style={styles.statLabel}>Erros</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="time-outline" size={24} color="#3B82F6" />
-          <Text style={styles.statValue}>{stats.mediaTempoResposta}s</Text>
-          <Text style={styles.statLabel}>Tempo Médio</Text>
+          <Ionicons name="stats-chart-outline" size={24} color="#F59E0B" />
+          <Text style={styles.statValue}>{percentualAcerto.toFixed(1)}%</Text>
+          <Text style={styles.statLabel}>Taxa de Acerto</Text>
         </View>
       </View>
 
@@ -111,13 +119,39 @@ export default function EstatisticasQuestao({ questaoId }: Props) {
             style={[
               styles.progressFill, 
               { 
-                width: `${stats.percentualAcerto}%`,
-                backgroundColor: stats.percentualAcerto >= 70 ? '#10B981' : '#EF4444'
+                width: `${percentualAcerto}%`,
+                backgroundColor: percentualAcerto >= 70 ? '#10B981' : '#EF4444'
               }
             ]} 
           />
         </View>
       </View>
+
+      {/* ✅ Mostrar distribuição de alternativas (se aplicável) */}
+      {stats.alternativas && stats.alternativas.length > 0 && (
+        <View style={styles.alternativasContainer}>
+          <Text style={styles.alternativasTitle}>Distribuição de Respostas</Text>
+          {stats.alternativas.map((alt) => {
+            const percent = totalTentativas > 0 
+              ? (alt.total / totalTentativas) * 100 
+              : 0;
+            return (
+              <View key={alt.letra} style={styles.alternativaRow}>
+                <Text style={styles.alternativaLetra}>{alt.letra}</Text>
+                <View style={styles.alternativaBar}>
+                  <View 
+                    style={[
+                      styles.alternativaBarFill,
+                      { width: `${percent}%` }
+                    ]}
+                  />
+                </View>
+                <Text style={styles.alternativaPercent}>{percent.toFixed(0)}%</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -176,6 +210,44 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  alternativasContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  alternativasTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  alternativaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  alternativaLetra: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    width: 24,
+  },
+  alternativaBar: {
+    flex: 1,
+    height: 24,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  alternativaBarFill: {
+    height: '100%',
+    backgroundColor: '#7C3AED',
+  },
+  alternativaPercent: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    width: 40,
+    textAlign: 'right',
   },
   loadingContainer: {
     padding: 32,

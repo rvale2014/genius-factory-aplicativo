@@ -289,7 +289,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   headerTitle: {
-    fontSize: 24, fontWeight: '700', color: '#333',
+    fontSize: 24,
+    color: '#333',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 
   tabsContainer: {
@@ -342,7 +344,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cardTitle: {
-    fontSize: 15, fontWeight: '700', color: '#333',
+    fontSize: 13,
+    color: '#333',
+    fontFamily: 'Inter-Medium',
   },
   metaRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

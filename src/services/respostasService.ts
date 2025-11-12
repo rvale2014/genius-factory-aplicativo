@@ -20,14 +20,14 @@ export async function corrigirMultiplaEscolhaOuCertaErrada(questaoId: string, le
 
   try {
     const { data } = await api.post("/mobile/v1/qbank/respostas/multipla-escolha", payload);
-    return data as { acertou: boolean };
+    return data as { acertou: boolean; alternativaCorreta?: string };
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 404) {
       const { data } = await api.post("/mobile/v1/qbank/respostas/objetiva-curta", {
         questaoId,
         resposta: letra,
       });
-      return data as { acertou: boolean };
+      return data as { acertou: boolean; alternativaCorreta?: string };
     }
     throw error;
   }

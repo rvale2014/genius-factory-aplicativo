@@ -99,7 +99,7 @@ const FilterRow = ({
     onPress={onPress}
   >
     <View style={styles.filterRowLeft}>
-      <Icon size={18} color="#4B5563" strokeWidth={2} />
+      <Icon size={18} color="#9CA3AF" strokeWidth={2} />
       <Text style={styles.filterRowLabel}>{label}</Text>
     </View>
     <View style={styles.filterRowRight}>
@@ -1085,16 +1085,16 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: "700",
     color: "#333",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   tabs: { flexDirection: "row", backgroundColor: "#f2f2f2", borderRadius: 12, padding: 4, marginBottom: 12 },
   tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 8 },
   tabActive: { backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: 14, color: "#333" },
-  tabTextActive: { fontWeight: "700", color: "#111" },
+  tabText: { fontSize: 14, color: "#333", fontFamily: "Inter" },
+  tabTextActive: { fontWeight: "700", color: "#111", fontFamily: "Inter-Bold" },
 
-  sectionTitle: { fontSize: 18, fontWeight: "700", marginVertical: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: "600", fontFamily: "Inter-SemiBold", marginVertical: 8 },
   filtersList: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -1140,6 +1140,7 @@ const styles = StyleSheet.create({
   filterRowLabel: {
     fontSize: 15,
     color: "#4B5563",
+    fontFamily: "Inter",
   },
   filterRowRight: {
     flexDirection: "row",

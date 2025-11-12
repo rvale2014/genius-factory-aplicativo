@@ -5,6 +5,12 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { Provider as JotaiProvider, useAtomValue } from 'jotai';
@@ -94,6 +100,15 @@ export default function RootLayout() {
     'Inter-Medium': Inter_500Medium,
     'Inter-SemiBold': Inter_600SemiBold,
     'Inter-Bold': Inter_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    'PlusJakartaSans': PlusJakartaSans_400Regular,
+    'PlusJakartaSans-Regular': PlusJakartaSans_400Regular,
+    'PlusJakartaSans-Medium': PlusJakartaSans_500Medium,
+    'PlusJakartaSans-SemiBold': PlusJakartaSans_600SemiBold,
+    'PlusJakartaSans-Bold': PlusJakartaSans_700Bold,
   });
 
   // Se houver erro ao carregar fontes, continua sem elas (usa fonte do sistema)

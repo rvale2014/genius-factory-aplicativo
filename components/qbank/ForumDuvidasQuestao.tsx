@@ -1,16 +1,18 @@
 // components/ForumDuvidasQuestao.tsx
+import { api } from '@/src/lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type Props = {
@@ -19,39 +21,50 @@ type Props = {
 
 type Duvida = {
   id: string;
-  texto: string;
-  autor: string;
-  data: string;
-  respostas: number;
+  titulo: string | null;
+  corpo: string;
+  status: 'ABERTA' | 'RESPONDIDA' | 'ARQUIVADA';
+  visibilidade: 'PUBLICO' | 'PRIVADO';
+  createdAt: string;
+  respostaOficialId: string | null;
+  _count: { respostas: number };
+  aluno: {
+    id: string;
+    nome?: string | null;
+    foto?: string | null;
+    avatar?: { imageUrl: string } | null;
+  };
 };
 
 export default function ForumDuvidasQuestao({ questaoId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [duvidas, setDuvidas] = useState<Duvida[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [novaDuvida, setNovaDuvida] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     fetchDuvidas();
-  }, [questaoId]);
+  }, [questaoId, page]);
 
   async function fetchDuvidas() {
     setLoading(true);
     setError(null);
-
+  
     try {
-      // TODO: Substituir pela sua API real quando estiver pronta
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/qbank/forum/duvidas?questaoId=${questaoId}`
-      );
-
-      if (!response.ok) {
-        throw new Error('Falha ao carregar dúvidas');
-      }
-
-      const data = await response.json();
-      setDuvidas(Array.isArray(data?.duvidas) ? data.duvidas : []);
+      const { data } = await api.get('/mobile/v1/qbank/forum/duvidas', {
+        params: {
+          questaoId,
+          page: 1,
+          pageSize: 10,
+        },
+      });
+      
+      setDuvidas(Array.isArray(data?.items) ? data.items : []);
+      setTotal(data?.total || 0);
+      setTotal(data?.total || 0);
     } catch (err) {
       setError('Não foi possível carregar as dúvidas.');
     } finally {
@@ -61,26 +74,16 @@ export default function ForumDuvidasQuestao({ questaoId }: Props) {
 
   async function handleEnviarDuvida() {
     if (!novaDuvida.trim()) return;
-
+  
     setEnviando(true);
     try {
-      // TODO: Substituir pela sua API real quando estiver pronta
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/qbank/forum/duvidas`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            questaoId,
-            texto: novaDuvida.trim(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Falha ao enviar dúvida');
-      }
-
+      await api.post('/mobile/v1/qbank/forum/duvidas', {
+        questaoId,
+        corpo: novaDuvida.trim(),
+        titulo: null,
+        visibilidade: 'PRIVADO',
+      });
+  
       setNovaDuvida('');
       await fetchDuvidas();
     } catch (err) {
@@ -91,27 +94,53 @@ export default function ForumDuvidasQuestao({ questaoId }: Props) {
   }
 
   function renderDuvida({ item }: { item: Duvida }) {
+    // ✅ Formatar data
+    const dataFormatada = new Date(item.createdAt).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    // ✅ Avatar do aluno
+    const avatarUrl = item.aluno?.foto || item.aluno?.avatar?.imageUrl;
+    const nomeAluno = item.aluno?.nome || 'Aluno';
+    const inicialAluno = nomeAluno.charAt(0).toUpperCase();
+
     return (
       <View style={styles.duvidaCard}>
         <View style={styles.duvidaHeader}>
-          <Ionicons name="person-circle-outline" size={20} color="#7C3AED" />
-          <Text style={styles.duvidaAutor}>{item.autor}</Text>
-          <Text style={styles.duvidaData}>{item.data}</Text>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>{inicialAluno}</Text>
+            </View>
+          )}
+          <Text style={styles.duvidaAutor}>{nomeAluno}</Text>
+          <Text style={styles.duvidaData}>{dataFormatada}</Text>
         </View>
         
-        <Text style={styles.duvidaTexto}>{item.texto}</Text>
+        <Text style={styles.duvidaTexto}>{item.corpo}</Text>
         
         <View style={styles.duvidaFooter}>
           <Ionicons name="chatbubble-outline" size={16} color="#6B7280" />
           <Text style={styles.duvidaRespostas}>
-            {item.respostas} {item.respostas === 1 ? 'resposta' : 'respostas'}
+            {item._count.respostas} {item._count.respostas === 1 ? 'resposta' : 'respostas'}
           </Text>
+          
+          {item.status === 'RESPONDIDA' && (
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>Respondida</Text>
+            </View>
+          )}
         </View>
       </View>
     );
   }
 
-  if (loading) {
+  if (loading && page === 1) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color="#7C3AED" />
@@ -149,6 +178,16 @@ export default function ForumDuvidasQuestao({ questaoId }: Props) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          ListFooterComponent={
+            total > duvidas.length ? (
+              <TouchableOpacity
+                style={styles.loadMoreButton}
+                onPress={() => setPage((p) => p + 1)}
+              >
+                <Text style={styles.loadMoreText}>Carregar mais</Text>
+              </TouchableOpacity>
+            ) : null
+          }
         />
       )}
 
@@ -216,6 +255,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  avatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   duvidaAutor: {
     fontSize: 13,
     fontWeight: '600',
@@ -240,6 +297,18 @@ const styles = StyleSheet.create({
   duvidaRespostas: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  statusBadge: {
+    marginLeft: 'auto',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -271,6 +340,15 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#D1D5DB',
+  },
+  loadMoreButton: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#7C3AED',
   },
   loadingContainer: {
     flex: 1,

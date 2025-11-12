@@ -463,7 +463,7 @@ export default function DashboardScreen() {
                   <Text style={styles.cursoProgresso}>{data.ultimoCurso.progressoPercentual}%</Text>
                 </View>
                 <View style={styles.cursoInfo}>
-                  <Ionicons name="book" size={16} color="#666" />
+                  <Ionicons name="book-outline" size={14} color="#666" />
                   <Text style={styles.cursoInfoText} numberOfLines={1}>
                     {data.ultimoCurso.materiaNome || 'Sem matéria'}
                   </Text>
@@ -505,7 +505,7 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
                 <View style={styles.cursoInfo}>
-                  <Ionicons name="book" size={16} color="#666" />
+                  <Ionicons name="book-outline" size={14} color="#666" />
                   <Text style={styles.cursoInfoText} numberOfLines={1}>
                     {data.ultimaTrilha.materiaNome || 'Sem matéria'}
                   </Text>
@@ -621,9 +621,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '700',
     color: '#333',
-    fontFamily: getInterFont('700'),
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   notificationButton: {
     position: 'relative',
@@ -739,11 +738,10 @@ const styles = StyleSheet.create({
   },
   desempenhoTitle: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#333',
     marginBottom: 16,
     textAlign: 'left',
-    fontFamily: getInterFont('700'),
+    fontFamily: 'Inter-Medium',
   },
   section: {
     marginBottom: 24,
@@ -751,11 +749,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#333',
     marginBottom: 16,
     textAlign: 'center',
-    fontFamily: getInterFont('700'),
+    fontFamily: 'Inter-Medium',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -957,11 +954,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cursoTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
     color: '#333',
     marginBottom: 8,
-    fontFamily: getInterFont('700'),
+    fontFamily: 'Inter-Medium',
   },
   progressContainer: {
     flexDirection: 'row',
@@ -1020,11 +1016,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   simuladoTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
     color: '#333',
     marginBottom: 12,
-    fontFamily: getInterFont('700'),
+    fontFamily: 'Inter-Medium',
   },
   simuladoInfo: {
     flexDirection: 'row',

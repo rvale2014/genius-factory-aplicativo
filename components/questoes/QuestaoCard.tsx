@@ -10,7 +10,6 @@ import {
   corrigirTabela,
 } from "@/src/services/respostasService";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet from "@gorhom/bottom-sheet";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -23,7 +22,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import RenderHTML from "react-native-render-html";
-import ConteudoExtraBottomSheet from "../qbank/ConteudoExtraBottomSheet";
+import ConteudoExtraModal, { ConteudoExtraModalRef } from "../qbank/ConteudoExtraModal";
 import BlocoRapidoAluno from "./BlocoRapidoAluno";
 import ColorirFiguraAluno, { ConteudoColorir } from "./ColorirFiguraAluno";
 import CompletarAluno from "./CompletarAluno";
@@ -43,6 +42,7 @@ export type QuestaoCardData = {
   blocoRapido?: any;
   ligarColunas?: any;
   conteudo?: any;
+  instituicao?: { nome: string } | null;
   materia?: { nome: string } | null;
   grauDificuldade?: { nome: string } | null;
   ano?: { nome: string } | null;
@@ -56,35 +56,35 @@ type Props = {
   questao: QuestaoCardData;
 };
 
-const TIPO_LABELS: Record<string, string> = {
-  multipla_escolha: "Múltipla escolha",
-  certa_errada: "Certa/Errada",
-  objetiva_curta: "Objetiva curta",
-  dissertativa: "Dissertativa",
-  bloco_rapido: "Bloco rápido",
-  ligar_colunas: "Ligar colunas",
-  completar: "Completar",
-  completar_topo: "Completar (topo)",
-  tabela: "Tabela",
-  selecao_multipla: "Seleção múltipla",
-  colorir_figura: "Colorir figura",
-};
-
 function parseConteudo(raw: any) {
   if (!raw) return null;
   if (typeof raw === "string") {
     try {
       return JSON.parse(raw);
     } catch {
-      return null;
+      return { html: raw };
     }
   }
   return raw;
 }
 
+function sanitizeInlineHtml(raw: string): string {
+  return raw
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n\s+/g, "\n")
+    .replace(/\n+/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeAlternativas(questao: QuestaoCardData) {
   if (Array.isArray(questao.alternativas) && questao.alternativas.length > 0) {
-    return questao.alternativas.map((alt) => String(alt));
+    return questao.alternativas
+      .map((alt) => sanitizeInlineHtml(String(alt ?? "")))
+      .filter((alt) => alt.length > 0);
   }
 
   if (questao.tipo === "certa_errada") {
@@ -98,8 +98,11 @@ function normalizeAlternativas(questao: QuestaoCardData) {
     return alternativas
       .map((alt: any) => {
         if (!alt) return null;
-        if (typeof alt === "string") return alt;
-        return alt.texto ?? alt.label ?? alt.descricao ?? null;
+        const value =
+          typeof alt === "string"
+            ? alt
+            : alt.texto ?? alt.label ?? alt.descricao ?? null;
+        return typeof value === "string" ? sanitizeInlineHtml(value) : null;
       })
       .filter((alt: string | null | undefined): alt is string => typeof alt === "string" && alt.trim().length > 0);
   }
@@ -137,7 +140,8 @@ function normalizeAlternativas(questao: QuestaoCardData) {
 
 export function QuestaoCard({ questao }: Props) {
   const { width } = useWindowDimensions();
-  const bottomSheetRef = useRef<BottomSheet | null>(null);
+  const conteudoExtraRef = useRef<ConteudoExtraModalRef | null>(null);
+  const cardRef = useRef<View>(null); // ✅ NOVA LINHA
 
   const alternativas = useMemo(() => normalizeAlternativas(questao), [questao]);
   const imagensAlternativas = useMemo(() => questao.imagensAlternativas ?? [], [questao.imagensAlternativas]);
@@ -150,8 +154,6 @@ export function QuestaoCard({ questao }: Props) {
     [questao.enunciado],
   );
 
-  const typeLabel = TIPO_LABELS[questao.tipo] ?? questao.tipo;
-
   const isObjetiva = questao.tipo === "multipla_escolha" || questao.tipo === "certa_errada";
   const isDissertativa = questao.tipo === "dissertativa";
   const isBlocoRapido = questao.tipo === "bloco_rapido";
@@ -163,7 +165,6 @@ export function QuestaoCard({ questao }: Props) {
   const isColorir = questao.tipo === "colorir_figura";
   
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [eliminadas, setEliminadas] = useState<number[]>([]);
   const [respostaTexto, setRespostaTexto] = useState("");
   const [respostasBlocoRapido, setRespostasBlocoRapido] = useState<string[]>([]);
   const [feedbacksBlocoRapido, setFeedbacksBlocoRapido] = useState<boolean[]>([]);
@@ -193,6 +194,7 @@ export function QuestaoCard({ questao }: Props) {
         nota?: number;
         justificativa?: string;
         sugestao?: string | null;
+        corretaLetra?: string | null;
       }
     | { status: "erro"; msg: string };
   const [feedback, setFeedback] = useState<FeedbackState>(null);
@@ -203,17 +205,31 @@ export function QuestaoCard({ questao }: Props) {
   const temComentarios = Boolean(questao.comentarioTexto) || Boolean(questao.comentarioVideoUrl);
   const temConteudoExtra = temDica || temComentarios;
 
-  // Função para abrir BottomSheet em uma aba específica
-  const abrirConteudoExtra = useCallback((aba?: 'dica' | 'texto' | 'video' | 'forum' | 'estatisticas') => {
-    bottomSheetRef.current?.snapToIndex(0);
-  }, []);
+  // Função para abrir conteúdo extra em modal
+  const abrirConteudoExtra = useCallback((aba?: 'dica' | 'texto' | 'forum' | 'estatisticas') => {
+    console.log("[QuestaoCard] abrirConteudoExtra acionado", {
+      questaoId: questao.id,
+      aba,
+      temDica,
+      temComentarios,
+      temConteudoExtra,
+    });
+    conteudoExtraRef.current?.open(aba);
+  }, [temComentarios, temConteudoExtra, temDica, questao.id]);
 
-  // Função para alternar eliminação de alternativa
-  const toggleEliminada = useCallback((index: number) => {
-    setEliminadas((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
-    );
-  }, []);
+  // Função auxiliar para abrir com scroll automático (se necessário)
+  const abrirConteudoExtraComScroll = useCallback(
+    (aba?: 'dica' | 'texto' | 'forum' | 'estatisticas') => {
+      console.log("[QuestaoCard] abrirConteudoExtraComScroll acionado", {
+        questaoId: questao.id,
+        aba,
+      });
+      // Por enquanto, apenas abre o modal
+      // O scroll automático pode ser implementado futuramente no FlatList pai
+      conteudoExtraRef.current?.open(aba);
+    },
+    [questao.id]
+  );
 
   // Preparar dados do bloco rápido
   const blocoRapidoItens = useMemo(() => {
@@ -549,7 +565,45 @@ export function QuestaoCard({ questao }: Props) {
         if (index === null) return;
         const letra = String.fromCharCode(65 + index);
         const result = await corrigirMultiplaEscolhaOuCertaErrada(questao.id, letra);
-        setFeedback({ status: "ok", acertou: !!result?.acertou });
+        const corretaLetra =
+          (() => {
+            const candidato =
+              (result as any)?.alternativaCorreta ??
+              (result as any)?.respostaCorreta ??
+              (result as any)?.gabarito ??
+              (result as any)?.corretaAlternativa ??
+              (result as any)?.letraCorreta ??
+              (result as any)?.alternativaCorretaIndex ??
+              (result as any)?.resposta_correta ??
+              null;
+
+            if (typeof candidato === "string") {
+              const clean = candidato.trim().toUpperCase();
+              if (clean.length === 1 && /[A-Z]/.test(clean)) {
+                return clean;
+              }
+              const ordem = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+              const idx = parseInt(clean, 10);
+              if (!Number.isNaN(idx) && idx >= 0 && idx < ordem.length) {
+                return ordem[idx];
+              }
+            }
+
+            if (typeof candidato === "number" && Number.isInteger(candidato)) {
+              const ordem = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+              if (candidato >= 0 && candidato < ordem.length) {
+                return ordem[candidato];
+              }
+            }
+
+            return null;
+          })();
+
+        setFeedback({
+          status: "ok",
+          acertou: !!result?.acertou,
+          corretaLetra,
+        });
       } else if (isDissertativa) {
         const result = await corrigirDissertativa(questao.id, respostaTexto);
         setFeedback({ 
@@ -611,17 +665,67 @@ export function QuestaoCard({ questao }: Props) {
       return null; // Para dissertativa, mostramos um card customizado
     }
     
-    return feedback.acertou ? "Você acertou!" : "Resposta incorreta. Tente novamente.";
+    if (feedback.acertou) {
+      return "Parabéns! Você recebeu +10 Genius Coins! 💰🪙🪙";
+    }
+
+    if (isObjetiva) {
+      const letra = feedback.corretaLetra ?? "—";
+      return `Você errou! Resposta correta: ${letra}`;
+    }
+
+    return "Resposta incorreta. Verifique os comentários.";
   })();
 
   const respondido = feedback?.status === "ok";
+  const corretaObjetiva = isObjetiva && feedback?.status === "ok"
+    ? (() => {
+        const letra = feedback.corretaLetra;
+        if (!letra) return null;
+        const idx = letra.charCodeAt(0) - 65;
+        if (idx < 0 || idx >= alternativas.length) return null;
+        return idx;
+      })()
+    : null;
 
-  return (
-    <>
-      <View style={styles.card}>
+return (
+  <>
+    <View ref={cardRef} style={styles.card}>
         <View style={styles.header}>
-          <Text style={styles.codigo}>{questao.codigo}</Text>
-          <Text style={styles.tipo}>{typeLabel}</Text>
+          <View style={styles.headerInfo}>
+            <Text style={styles.codigo}>{questao.codigo}</Text>
+            {questao.materia?.nome ? (
+              <View style={styles.headerChips}>
+                <Text style={styles.headerChipMateria}>{questao.materia.nome}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.infoBadge,
+                !(temConteudoExtra || temDica) && styles.infoBadgeDisabled,
+              ]}
+              disabled={!(temConteudoExtra || temDica)}
+              onPress={() => {
+                console.log("[QuestaoCard] Ícone comentários tocado", {
+                  questaoId: questao.id,
+                  temConteudoExtra,
+                  temDica,
+                });
+                if (temConteudoExtra) {
+                  abrirConteudoExtra("texto");
+                } else if (temDica) {
+                  abrirConteudoExtra("dica");
+                } else {
+                  abrirConteudoExtra();
+                }
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#EB1480" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.enunciadoWrapper}>
@@ -646,25 +750,13 @@ export function QuestaoCard({ questao }: Props) {
             {alternativas.map((alt: string, index: number) => {
               const letra = String.fromCharCode(65 + index);
               const selected = selectedIndex === index;
-              const eliminada = eliminadas.includes(index);
+              const correta = respondido && corretaObjetiva === index;
               const imagemUrl = imagensAlternativas[index];
               const hasImage = !!imagemUrl;
               const hasText = alt.trim().length > 0;
 
               return (
                 <View key={`${questao.id}-alt-${index}`} style={styles.alternativaWrapper}>
-                  {/* Botão de eliminar (scissors) */}
-                  <TouchableOpacity
-                    onPress={() => toggleEliminada(index)}
-                    style={styles.scissorsButton}
-                  >
-                    <Ionicons
-                      name="cut-outline"
-                      size={18}
-                      color={eliminada ? "#EF4444" : "#9CA3AF"}
-                    />
-                  </TouchableOpacity>
-
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => {
@@ -676,11 +768,23 @@ export function QuestaoCard({ questao }: Props) {
                       styles.alternativaRow,
                       selected && styles.alternativaRowSelected,
                       respondido && styles.alternativaRowDisabled,
-                      eliminada && styles.alternativaRowEliminada,
+                      correta && styles.alternativaRowCorreta,
                     ]}
                   >
-                    <View style={[styles.alternativaBullet, selected && styles.alternativaBulletSelected]}>
-                      <Text style={[styles.alternativaLabel, selected && styles.alternativaLabelSelected]}>{letra}</Text>
+                    <View
+                      style={[
+                        styles.alternativaBullet,
+                        selected && styles.alternativaBulletSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.alternativaLabel,
+                          selected && styles.alternativaLabelSelected,
+                        ]}
+                      >
+                        {letra}
+                      </Text>
                     </View>
 
                     <View style={styles.alternativaContent}>
@@ -691,11 +795,21 @@ export function QuestaoCard({ questao }: Props) {
                           resizeMode="contain"
                         />
                       )}
-                      {hasText && (
-                        <Text style={[styles.alternativaTexto, selected && styles.alternativaTextoSelected]}>
-                          {alt}
-                        </Text>
-                      )}
+                      <View style={styles.alternativaTextoArea}>
+                        {hasText && (
+                          <Text
+                            style={[
+                              styles.alternativaTexto,
+                              (selected || correta) && styles.alternativaTextoSelected,
+                            ]}
+                          >
+                            {alt}
+                          </Text>
+                        )}
+                        {correta ? (
+                          <Ionicons name="checkmark-circle" size={18} color="#30C58E" />
+                        ) : null}
+                      </View>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -846,6 +960,28 @@ export function QuestaoCard({ questao }: Props) {
               </View>
             )}
 
+        {/* ✅ NOVO BLOCO: Botão de Acesso Rápido aos Comentários */}
+        {respondido && temConteudoExtra && (
+          <TouchableOpacity
+            style={styles.acessoRapidoBtn}
+            onPress={() => abrirConteudoExtraComScroll('texto')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.acessoRapidoContent}>
+              <Ionicons name="bulb" size={20} color="#F59E0B" />
+              <View style={styles.acessoRapidoTextos}>
+                <Text style={styles.acessoRapidoTitulo}>
+                  Ver Explicação Completa
+                </Text>
+                <Text style={styles.acessoRapidoSubtitulo}>
+                  Comentários e Dicas
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#7C3AED" />
+            </View>
+          </TouchableOpacity>
+        )}
+
             {/* Botões principais */}
             <View style={styles.botoesAcao}>
               <TouchableOpacity
@@ -863,53 +999,14 @@ export function QuestaoCard({ questao }: Props) {
                 )}
               </TouchableOpacity>
 
-              {/* Botões de Conteúdo Extra */}
-              {temDica && (
-                <TouchableOpacity
-                  style={styles.dicaBtn}
-                  onPress={() => abrirConteudoExtra('dica')}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
-                </TouchableOpacity>
-              )}
-
-              {temConteudoExtra && (
-                <TouchableOpacity
-                  style={[styles.extraBtn, !respondido && styles.extraBtnDisabled]}
-                  onPress={() => abrirConteudoExtra('texto')}
-                  disabled={!respondido}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons 
-                    name="library-outline" 
-                    size={20} 
-                    color={respondido ? "#7C3AED" : "#D1D5DB"} 
-                  />
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={styles.forumBtn}
-                onPress={() => abrirConteudoExtra('forum')}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="chatbubbles-outline" size={20} color="#3B82F6" />
-              </TouchableOpacity>
             </View>
           </View>
         )}
 
-        <View style={styles.meta}>
-          {questao.materia?.nome ? <Text style={styles.metaChip}>{questao.materia.nome}</Text> : null}
-          {questao.grauDificuldade?.nome ? <Text style={styles.metaChip}>{questao.grauDificuldade.nome}</Text> : null}
-          {questao.ano?.nome ? <Text style={styles.metaChip}>{questao.ano.nome}</Text> : null}
-        </View>
       </View>
 
-      {/* BottomSheet de Conteúdo Extra */}
-      <ConteudoExtraBottomSheet
-        bottomSheetRef={bottomSheetRef}
+      <ConteudoExtraModal
+        ref={conteudoExtraRef}
         questaoId={questao.id}
         dica={questao.dica}
         comentarioTexto={questao.comentarioTexto}
@@ -938,16 +1035,47 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  infoBadge: {
+    padding: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoBadgeDisabled: {
+    opacity: 0.5,
+  },
   codigo: {
     fontWeight: "700",
     fontSize: 16,
     color: "#111827",
   },
-  tipo: {
-    fontSize: 13,
+  headerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerChips: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  headerChipMateria: {
+    backgroundColor: "#FDF2FF",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#6B7280",
-    textTransform: "capitalize",
+    fontFamily: "Inter-Medium",
+    color: "#EB1480",
   },
   enunciadoWrapper: {
     marginTop: 4,
@@ -956,12 +1084,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     color: "#111827",
+    textAlign: "justify",
   },
   paragraph: {
     marginBottom: 8,
     fontSize: 15,
     lineHeight: 20,
     color: "#111827",
+    textAlign: "justify",
   },
   strong: {
     fontWeight: "700",
@@ -975,13 +1105,6 @@ const styles = StyleSheet.create({
   },
   alternativaWrapper: {
     position: "relative",
-  },
-  scissorsButton: {
-    position: "absolute",
-    left: -30,
-    top: 18,
-    zIndex: 10,
-    padding: 4,
   },
   alternativaRow: {
     flexDirection: "row",
@@ -997,12 +1120,10 @@ const styles = StyleSheet.create({
   alternativaRowDisabled: {
     opacity: 0.75,
   },
-  alternativaRowSelected: {
-    backgroundColor: "#F0FDF4",
-    borderColor: "#86EFAC",
-  },
-  alternativaRowEliminada: {
-    opacity: 0.4,
+  alternativaRowSelected: {},
+  alternativaRowCorreta: {
+    backgroundColor: "#F5EAFE",
+    borderColor: "#C084FC",
   },
   alternativaBullet: {
     width: 30,
@@ -1015,8 +1136,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   alternativaBulletSelected: {
-    borderColor: "#22C55E",
-    backgroundColor: "#22C55E",
+    borderColor: "#A855F7",
+    backgroundColor: "#A855F7",
   },
   alternativaLabel: {
     fontWeight: "600",
@@ -1041,7 +1162,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   alternativaTextoSelected: {
-    color: "#14532D",
+    color: "#111827",
+  },
+  alternativaTextoArea: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
   },
   dissertativaContainer: {
     marginTop: 8,
@@ -1128,21 +1255,6 @@ const styles = StyleSheet.create({
     color: "#78350F",
     lineHeight: 18,
   },
-  meta: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 4,
-  },
-  metaChip: {
-    backgroundColor: "#F3F4F6",
-    color: "#4B5563",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: "600",
-  },
   responderArea: {
     marginTop: 4,
     gap: 10,
@@ -1153,10 +1265,11 @@ const styles = StyleSheet.create({
   },
   responderBtn: {
     flex: 1,
-    backgroundColor: "#22C55E",
-    borderRadius: 999,
-    paddingVertical: 14,
+    backgroundColor: "#30C58E",
+    borderRadius: 12,
+    paddingVertical: 10,
     alignItems: "center",
+    justifyContent: "center",
   },
   responderBtnDisabled: {
     opacity: 0.6,
@@ -1164,7 +1277,9 @@ const styles = StyleSheet.create({
   responderText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
+    fontFamily: "Inter-SemiBold",
+    lineHeight: 24,
   },
   dicaBtn: {
     width: 48,
@@ -1207,6 +1322,35 @@ const styles = StyleSheet.create({
   },
   feedbackError: {
     color: "#B91C1C",
+  },
+  // ✅ NOVOS ESTILOS para o botão de acesso rápido
+  acessoRapidoBtn: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#C4B5FD',
+    padding: 16,
+    marginTop: 8,
+  },
+  acessoRapidoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  acessoRapidoTextos: {
+    flex: 1,
+    gap: 2,
+  },
+  acessoRapidoTitulo: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#5B21B6',
+    fontFamily: 'Inter-Medium',
+  },
+  acessoRapidoSubtitulo: {
+    fontSize: 12,
+    color: '#7C3AED',
+    fontFamily: 'Inter-Medium',
   },
 });
 
