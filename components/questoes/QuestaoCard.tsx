@@ -9,7 +9,9 @@ import {
   corrigirSelecaoMultipla,
   corrigirTabela,
 } from "@/src/services/respostasService";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import BottomSheet from "@gorhom/bottom-sheet";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +23,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import RenderHTML from "react-native-render-html";
+import ConteudoExtraBottomSheet from "../qbank/ConteudoExtraBottomSheet";
 import BlocoRapidoAluno from "./BlocoRapidoAluno";
 import ColorirFiguraAluno, { ConteudoColorir } from "./ColorirFiguraAluno";
 import CompletarAluno from "./CompletarAluno";
@@ -43,6 +46,10 @@ export type QuestaoCardData = {
   materia?: { nome: string } | null;
   grauDificuldade?: { nome: string } | null;
   ano?: { nome: string } | null;
+  // NOVAS PROPS para conteúdo extra
+  dica?: string | null;
+  comentarioTexto?: string | null;
+  comentarioVideoUrl?: string | null;
 };
 
 type Props = {
@@ -130,6 +137,7 @@ function normalizeAlternativas(questao: QuestaoCardData) {
 
 export function QuestaoCard({ questao }: Props) {
   const { width } = useWindowDimensions();
+  const bottomSheetRef = useRef<BottomSheet | null>(null);
 
   const alternativas = useMemo(() => normalizeAlternativas(questao), [questao]);
   const imagensAlternativas = useMemo(() => questao.imagensAlternativas ?? [], [questao.imagensAlternativas]);
@@ -155,6 +163,7 @@ export function QuestaoCard({ questao }: Props) {
   const isColorir = questao.tipo === "colorir_figura";
   
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [eliminadas, setEliminadas] = useState<number[]>([]);
   const [respostaTexto, setRespostaTexto] = useState("");
   const [respostasBlocoRapido, setRespostasBlocoRapido] = useState<string[]>([]);
   const [feedbacksBlocoRapido, setFeedbacksBlocoRapido] = useState<boolean[]>([]);
@@ -176,7 +185,7 @@ export function QuestaoCard({ questao }: Props) {
     partesMarcadas: [],
   });
   const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<
+  type FeedbackState =
     | null
     | {
         status: "ok";
@@ -185,9 +194,26 @@ export function QuestaoCard({ questao }: Props) {
         justificativa?: string;
         sugestao?: string | null;
       }
-    | { status: "erro"; msg: string }
-  >(null);
+    | { status: "erro"; msg: string };
+  const [feedback, setFeedback] = useState<FeedbackState>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Verificar se tem conteúdo extra disponível
+  const temDica = Boolean(questao.dica);
+  const temComentarios = Boolean(questao.comentarioTexto) || Boolean(questao.comentarioVideoUrl);
+  const temConteudoExtra = temDica || temComentarios;
+
+  // Função para abrir BottomSheet em uma aba específica
+  const abrirConteudoExtra = useCallback((aba?: 'dica' | 'texto' | 'video' | 'forum' | 'estatisticas') => {
+    bottomSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  // Função para alternar eliminação de alternativa
+  const toggleEliminada = useCallback((index: number) => {
+    setEliminadas((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    );
+  }, []);
 
   // Preparar dados do bloco rápido
   const blocoRapidoItens = useMemo(() => {
@@ -591,242 +617,306 @@ export function QuestaoCard({ questao }: Props) {
   const respondido = feedback?.status === "ok";
 
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <Text style={styles.codigo}>{questao.codigo}</Text>
-        <Text style={styles.tipo}>{typeLabel}</Text>
-      </View>
+    <>
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Text style={styles.codigo}>{questao.codigo}</Text>
+          <Text style={styles.tipo}>{typeLabel}</Text>
+        </View>
 
-      <View style={styles.enunciadoWrapper}>
-        <RenderHTML
-          contentWidth={contentWidth}
-          source={htmlSource}
-          baseStyle={styles.enunciado}
-          defaultTextProps={{ selectable: false }}
-          tagsStyles={{
-            p: styles.paragraph,
-            strong: styles.strong,
-            b: styles.strong,
-            em: styles.em,
-            i: styles.em,
-          }}
-        />
-      </View>
+        <View style={styles.enunciadoWrapper}>
+          <RenderHTML
+            contentWidth={contentWidth}
+            source={htmlSource}
+            baseStyle={styles.enunciado}
+            defaultTextProps={{ selectable: false }}
+            tagsStyles={{
+              p: styles.paragraph,
+              strong: styles.strong,
+              b: styles.strong,
+              em: styles.em,
+              i: styles.em,
+            }}
+          />
+        </View>
 
-      {/* Alternativas de múltipla escolha */}
-      {(isObjetiva && alternativas.length > 0) ? (
-        <View style={styles.alternativas}>
-          {alternativas.map((alt: string, index: number) => {
-            const letra = String.fromCharCode(65 + index);
-            const selected = selectedIndex === index;
-            const imagemUrl = imagensAlternativas[index];
-            const hasImage = !!imagemUrl;
-            const hasText = alt.trim().length > 0;
+        {/* Alternativas de múltipla escolha */}
+        {(isObjetiva && alternativas.length > 0) ? (
+          <View style={styles.alternativas}>
+            {alternativas.map((alt: string, index: number) => {
+              const letra = String.fromCharCode(65 + index);
+              const selected = selectedIndex === index;
+              const eliminada = eliminadas.includes(index);
+              const imagemUrl = imagensAlternativas[index];
+              const hasImage = !!imagemUrl;
+              const hasText = alt.trim().length > 0;
 
-            return (
-              <TouchableOpacity
-                key={`${questao.id}-alt-${index}`}
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (respondido) return;
-                  setSelectedIndex(index);
-                  setFeedback(null);
-                }}
+              return (
+                <View key={`${questao.id}-alt-${index}`} style={styles.alternativaWrapper}>
+                  {/* Botão de eliminar (scissors) */}
+                  <TouchableOpacity
+                    onPress={() => toggleEliminada(index)}
+                    style={styles.scissorsButton}
+                  >
+                    <Ionicons
+                      name="cut-outline"
+                      size={18}
+                      color={eliminada ? "#EF4444" : "#9CA3AF"}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (respondido) return;
+                      setSelectedIndex(index);
+                      setFeedback(null);
+                    }}
+                    style={[
+                      styles.alternativaRow,
+                      selected && styles.alternativaRowSelected,
+                      respondido && styles.alternativaRowDisabled,
+                      eliminada && styles.alternativaRowEliminada,
+                    ]}
+                  >
+                    <View style={[styles.alternativaBullet, selected && styles.alternativaBulletSelected]}>
+                      <Text style={[styles.alternativaLabel, selected && styles.alternativaLabelSelected]}>{letra}</Text>
+                    </View>
+
+                    <View style={styles.alternativaContent}>
+                      {hasImage && (
+                        <Image
+                          source={{ uri: imagemUrl }}
+                          style={styles.alternativaImagem}
+                          resizeMode="contain"
+                        />
+                      )}
+                      {hasText && (
+                        <Text style={[styles.alternativaTexto, selected && styles.alternativaTextoSelected]}>
+                          {alt}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {/* Campo de texto para dissertativa */}
+        {isDissertativa && (
+          <View style={styles.dissertativaContainer}>
+            <Text style={styles.dissertativaLabel}>Escreva sua resposta:</Text>
+            <TextInput
+              value={respostaTexto}
+              onChangeText={setRespostaTexto}
+              multiline
+              numberOfLines={8}
+              textAlignVertical="top"
+              placeholder="Digite sua resposta aqui..."
+              editable={!respondido}
+              style={[
+                styles.dissertativaInput,
+                respondido && styles.dissertativaInputDisabled,
+              ]}
+            />
+            <Text style={styles.charCounter}>{respostaTexto.length} caracteres</Text>
+          </View>
+        )}
+
+        {/* Bloco Rápido */}
+        {isBlocoRapido && blocoRapidoItens.length > 0 && (
+          <BlocoRapidoAluno
+            respondido={respondido}
+            blocoRapido={blocoRapidoItens}
+            respostasAluno={respostasBlocoRapido}
+            setRespostasAluno={setRespostasBlocoRapido}
+            feedbacks={respondido ? feedbacksBlocoRapido : undefined}
+          />
+        )}
+
+        {/* Ligar Colunas */}
+        {isLigarColunas && ligarColunasItens.length > 0 && (
+          <LigarColunasAluno
+            respondido={respondido}
+            ligarColunas={ligarColunasItens}
+            respostasAluno={respostasLigarColunas}
+            setRespostasAluno={setRespostasLigarColunas}
+            feedbacks={respondido ? feedbacksLigarColunas : undefined}
+            corretas={respondido ? corretasLigarColunas : undefined}
+          />
+        )}
+
+        {isSelecaoMultipla && selecaoMultiplaAlternativas.length > 0 && (
+          <SelecaoMultiplaAluno
+            respondido={respondido}
+            alternativas={selecaoMultiplaAlternativas}
+            respostasAluno={respostasSelecaoMultipla}
+            setRespostasAluno={handleSelecaoMultiplaChange}
+            corretas={respondido ? corretasSelecaoMultipla : undefined}
+          />
+        )}
+
+        {isCompletarTopo && completarTopoConteudo && (
+          <CompletarTopoAluno
+            respondido={respondido}
+            conteudo={completarTopoConteudo}
+            respostasAluno={respostasCompletarTopo}
+            setRespostasAluno={handleCompletarTopoChange}
+            feedbacks={respondido ? feedbacksCompletarTopo : undefined}
+          />
+        )}
+
+        {isTabela && tabelaConteudo && (
+          <QuestaoTabela
+            respondido={respondido}
+            conteudo={tabelaConteudo}
+            respostasAluno={respostasTabela}
+            setRespostasAluno={handleTabelaChange}
+            feedbacks={respondido ? feedbacksTabela : undefined}
+          />
+        )}
+
+        {isColorir && colorirConteudo && (
+          <ColorirFiguraAluno
+            respondido={respondido}
+            conteudo={colorirConteudo}
+            respostasAluno={respostasColorir}
+            setRespostasAluno={handleColorirChange}
+          />
+        )}
+
+        {isCompletar && completarFrases.length > 0 && (
+          <CompletarAluno
+            respondido={respondido}
+            frases={completarFrases}
+            respostasAluno={respostasCompletar}
+            setRespostasAluno={handleCompletarChange}
+            feedbacks={respondido ? feedbacksCompletar : undefined}
+          />
+        )}
+
+        {/* Botões de Ação */}
+        {(isObjetiva || isDissertativa || isBlocoRapido || isLigarColunas || isSelecaoMultipla || isCompletar || isCompletarTopo || isTabela || isColorir) && (
+          <View style={styles.responderArea}>
+            {validationError ? <Text style={styles.validation}>{validationError}</Text> : null}
+            
+            {feedbackMessage ? (
+              <Text
                 style={[
-                  styles.alternativaRow,
-                  selected && styles.alternativaRowSelected,
-                  respondido && styles.alternativaRowDisabled,
+                  styles.feedback,
+                  feedback?.status === "ok"
+                    ? feedback?.acertou
+                      ? styles.feedbackSuccess
+                      : styles.feedbackError
+                    : styles.feedbackError,
                 ]}
               >
-                <View style={[styles.alternativaBullet, selected && styles.alternativaBulletSelected]}>
-                  <Text style={[styles.alternativaLabel, selected && styles.alternativaLabelSelected]}>{letra}</Text>
-                </View>
-
-                <View style={styles.alternativaContent}>
-                  {hasImage && (
-                    <Image
-                      source={{ uri: imagemUrl }}
-                      style={styles.alternativaImagem}
-                      resizeMode="contain"
-                    />
-                  )}
-                  {hasText && (
-                    <Text style={[styles.alternativaTexto, selected && styles.alternativaTextoSelected]}>
-                      {alt}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {/* Campo de texto para dissertativa */}
-      {isDissertativa && (
-        <View style={styles.dissertativaContainer}>
-          <Text style={styles.dissertativaLabel}>Escreva sua resposta:</Text>
-          <TextInput
-            value={respostaTexto}
-            onChangeText={setRespostaTexto}
-            multiline
-            numberOfLines={8}
-            textAlignVertical="top"
-            placeholder="Digite sua resposta aqui..."
-            editable={!respondido}
-            style={[
-              styles.dissertativaInput,
-              respondido && styles.dissertativaInputDisabled,
-            ]}
-          />
-          <Text style={styles.charCounter}>{respostaTexto.length} caracteres</Text>
-        </View>
-      )}
-
-      {/* Bloco Rápido */}
-      {isBlocoRapido && blocoRapidoItens.length > 0 && (
-        <BlocoRapidoAluno
-          respondido={respondido}
-          blocoRapido={blocoRapidoItens}
-          respostasAluno={respostasBlocoRapido}
-          setRespostasAluno={setRespostasBlocoRapido}
-          feedbacks={respondido ? feedbacksBlocoRapido : undefined}
-        />
-      )}
-
-      {/* Ligar Colunas */}
-      {isLigarColunas && ligarColunasItens.length > 0 && (
-        <LigarColunasAluno
-          respondido={respondido}
-          ligarColunas={ligarColunasItens}
-          respostasAluno={respostasLigarColunas}
-          setRespostasAluno={setRespostasLigarColunas}
-          feedbacks={respondido ? feedbacksLigarColunas : undefined}
-          corretas={respondido ? corretasLigarColunas : undefined}
-        />
-      )}
-
-      {isSelecaoMultipla && selecaoMultiplaAlternativas.length > 0 && (
-        <SelecaoMultiplaAluno
-          respondido={respondido}
-          alternativas={selecaoMultiplaAlternativas}
-          respostasAluno={respostasSelecaoMultipla}
-          setRespostasAluno={handleSelecaoMultiplaChange}
-          corretas={respondido ? corretasSelecaoMultipla : undefined}
-        />
-      )}
-
-      {isCompletarTopo && completarTopoConteudo && (
-        <CompletarTopoAluno
-          respondido={respondido}
-          conteudo={completarTopoConteudo}
-          respostasAluno={respostasCompletarTopo}
-          setRespostasAluno={handleCompletarTopoChange}
-          feedbacks={respondido ? feedbacksCompletarTopo : undefined}
-        />
-      )}
-
-      {isTabela && tabelaConteudo && (
-        <QuestaoTabela
-          respondido={respondido}
-          conteudo={tabelaConteudo}
-          respostasAluno={respostasTabela}
-          setRespostasAluno={handleTabelaChange}
-          feedbacks={respondido ? feedbacksTabela : undefined}
-        />
-      )}
-
-    {isColorir && colorirConteudo && (
-      <ColorirFiguraAluno
-        respondido={respondido}
-        conteudo={colorirConteudo}
-        respostasAluno={respostasColorir}
-        setRespostasAluno={handleColorirChange}
-      />
-    )}
-
-      {isCompletar && completarFrases.length > 0 && (
-        <CompletarAluno
-          respondido={respondido}
-          frases={completarFrases}
-          respostasAluno={respostasCompletar}
-          setRespostasAluno={handleCompletarChange}
-          feedbacks={respondido ? feedbacksCompletar : undefined}
-        />
-      )}
-
-      {/* Botão Responder e feedback */}
-      {(isObjetiva || isDissertativa || isBlocoRapido || isLigarColunas || isSelecaoMultipla || isCompletar || isCompletarTopo || isTabela || isColorir) && (
-        <View style={styles.responderArea}>
-          {validationError ? <Text style={styles.validation}>{validationError}</Text> : null}
-          
-          {feedbackMessage ? (
-            <Text
-              style={[
-                styles.feedback,
-                feedback?.status === "ok"
-                  ? feedback?.acertou
-                    ? styles.feedbackSuccess
-                    : styles.feedbackError
-                  : styles.feedbackError,
-              ]}
-            >
-              {feedbackMessage}
-            </Text>
-          ) : null}
-
-          {/* Feedback dissertativa (card customizado) */}
-          {isDissertativa && feedback?.status === "ok" && (
-            <View style={styles.dissertativaFeedback}>
-              <View style={styles.notaContainer}>
-                <Text style={styles.notaLabel}>Nota:</Text>
-                <Text style={[
-                  styles.notaValor,
-                  (feedback.nota ?? 0) > 7 ? styles.notaSuccess : styles.notaError
-                ]}>
-                  {feedback.nota}/10
-                </Text>
-              </View>
-              
-              {feedback.justificativa && (
-                <View style={styles.justificativaContainer}>
-                  <Text style={styles.justificativaLabel}>Justificativa:</Text>
-                  <Text style={styles.justificativaTexto}>{feedback.justificativa}</Text>
-                </View>
-              )}
-
-              {feedback.sugestao && (
-                <View style={styles.sugestaoContainer}>
-                  <Text style={styles.sugestaoLabel}>Resposta sugerida:</Text>
-                  <Text style={styles.sugestaoTexto}>{feedback.sugestao}</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.responderBtn, (submitting || respondido) && styles.responderBtnDisabled]}
-            onPress={handleResponder}
-            disabled={submitting || respondido}
-            activeOpacity={0.85}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.responderText}>
-                {respondido ? "Respondido" : "Responder"}
+                {feedbackMessage}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
+            ) : null}
 
-      <View style={styles.meta}>
-        {questao.materia?.nome ? <Text style={styles.metaChip}>{questao.materia.nome}</Text> : null}
-        {questao.grauDificuldade?.nome ? <Text style={styles.metaChip}>{questao.grauDificuldade.nome}</Text> : null}
-        {questao.ano?.nome ? <Text style={styles.metaChip}>{questao.ano.nome}</Text> : null}
+            {/* Feedback dissertativa (card customizado) */}
+            {isDissertativa && feedback?.status === "ok" && (
+              <View style={styles.dissertativaFeedback}>
+                <View style={styles.notaContainer}>
+                  <Text style={styles.notaLabel}>Nota:</Text>
+                  <Text style={[
+                    styles.notaValor,
+                    (feedback.nota ?? 0) > 7 ? styles.notaSuccess : styles.notaError
+                  ]}>
+                    {feedback.nota}/10
+                  </Text>
+                </View>
+                
+                {feedback.justificativa && (
+                  <View style={styles.justificativaContainer}>
+                    <Text style={styles.justificativaLabel}>Justificativa:</Text>
+                    <Text style={styles.justificativaTexto}>{feedback.justificativa}</Text>
+                  </View>
+                )}
+
+                {feedback.sugestao && (
+                  <View style={styles.sugestaoContainer}>
+                    <Text style={styles.sugestaoLabel}>Resposta sugerida:</Text>
+                    <Text style={styles.sugestaoTexto}>{feedback.sugestao}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Botões principais */}
+            <View style={styles.botoesAcao}>
+              <TouchableOpacity
+                style={[styles.responderBtn, (submitting || respondido) && styles.responderBtnDisabled]}
+                onPress={handleResponder}
+                disabled={submitting || respondido}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.responderText}>
+                    {respondido ? "Respondido" : "Responder"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Botões de Conteúdo Extra */}
+              {temDica && (
+                <TouchableOpacity
+                  style={styles.dicaBtn}
+                  onPress={() => abrirConteudoExtra('dica')}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
+                </TouchableOpacity>
+              )}
+
+              {temConteudoExtra && (
+                <TouchableOpacity
+                  style={[styles.extraBtn, !respondido && styles.extraBtnDisabled]}
+                  onPress={() => abrirConteudoExtra('texto')}
+                  disabled={!respondido}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons 
+                    name="library-outline" 
+                    size={20} 
+                    color={respondido ? "#7C3AED" : "#D1D5DB"} 
+                  />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.forumBtn}
+                onPress={() => abrirConteudoExtra('forum')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="chatbubbles-outline" size={20} color="#3B82F6" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.meta}>
+          {questao.materia?.nome ? <Text style={styles.metaChip}>{questao.materia.nome}</Text> : null}
+          {questao.grauDificuldade?.nome ? <Text style={styles.metaChip}>{questao.grauDificuldade.nome}</Text> : null}
+          {questao.ano?.nome ? <Text style={styles.metaChip}>{questao.ano.nome}</Text> : null}
+        </View>
       </View>
-    </View>
+
+      {/* BottomSheet de Conteúdo Extra */}
+      <ConteudoExtraBottomSheet
+        bottomSheetRef={bottomSheetRef}
+        questaoId={questao.id}
+        dica={questao.dica}
+        comentarioTexto={questao.comentarioTexto}
+        comentarioVideoUrl={questao.comentarioVideoUrl}
+        respondido={respondido}
+      />
+    </>
   );
 }
 
@@ -883,6 +973,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 10,
   },
+  alternativaWrapper: {
+    position: "relative",
+  },
+  scissorsButton: {
+    position: "absolute",
+    left: -30,
+    top: 18,
+    zIndex: 10,
+    padding: 4,
+  },
   alternativaRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -900,6 +1000,9 @@ const styles = StyleSheet.create({
   alternativaRowSelected: {
     backgroundColor: "#F0FDF4",
     borderColor: "#86EFAC",
+  },
+  alternativaRowEliminada: {
+    opacity: 0.4,
   },
   alternativaBullet: {
     width: 30,
@@ -1044,7 +1147,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 10,
   },
+  botoesAcao: {
+    flexDirection: "row",
+    gap: 8,
+  },
   responderBtn: {
+    flex: 1,
     backgroundColor: "#22C55E",
     borderRadius: 999,
     paddingVertical: 14,
@@ -1057,6 +1165,33 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
+  },
+  dicaBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FEF3C7",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  extraBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#EDE9FE",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  extraBtnDisabled: {
+    backgroundColor: "#F3F4F6",
+  },
+  forumBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#DBEAFE",
+    justifyContent: "center",
+    alignItems: "center",
   },
   validation: {
     color: "#B91C1C",
