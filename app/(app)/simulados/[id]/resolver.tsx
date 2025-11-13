@@ -2,10 +2,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ====== services esperados (ajuste os paths se necessário) ======
+import QuestaoSimuladoCard from "@/components/questoes/QuestaoSimuladoCard";
 import {
   avaliarPendentes,
   getSimuladoParaResolver, // POST /mobile/v1/qbank/simulados/:id/iniciar
@@ -122,17 +123,16 @@ function ProgressHeader({
   const percent = total > 0 ? Math.round((respondidas / total) * 100) : 0;
 
   return (
-    <View style={{ marginVertical: 8 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-        <Text style={{ fontSize: 12, color: "#374151" }}>{respondidas}/{total} respondidas</Text>
-        <Text style={{ fontSize: 12, color: "#374151", fontWeight: "700" }}>{percent}%</Text>
-      </View>
-      <View style={{ height: 8, backgroundColor: "#E5E7EB", borderRadius: 999 }}>
-        <View style={{ width: `${percent}%`, backgroundColor: "#8B5CF6", borderRadius: 999, height: 8 }} />
+    <View style={styles.progressSection}>
+      <View style={styles.progressRow}>
+        <Text style={styles.questionLabel}>Questão {paginaAtual}</Text>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${percent}%` }]} />
+        </View>
+        <Text style={styles.percentText}>{percent}%</Text>
       </View>
 
-      {/* Bolinhas com atalho de navegação */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+      <View style={styles.dotRow}>
         {questoes.map((q, i) => {
           const ok = isRespondida(q.tipo, respostas[q.id]);
           const active = i + 1 === paginaAtual;
@@ -153,125 +153,6 @@ function ProgressHeader({
       </View>
     </View>
   );
-}
-
-// ====== UI: Render mínimo de cada tipo (substitua pelos seus componentes quando quiser) ======
-function RespostaSimuladoMobile({
-  questao,
-  resposta,
-  onResponder,
-}: {
-  questao: Questao;
-  resposta: any;
-  onResponder: (v: any) => void;
-}) {
-  // Múltipla escolha / Certa-errada (índice 0..n)
-  if (questao.tipo === "multipla_escolha" || questao.tipo === "certa_errada") {
-    const alternativas = Array.isArray(questao.alternativas) && questao.alternativas.length > 0
-      ? questao.alternativas
-      : questao.tipo === "certa_errada"
-        ? ["Certo", "Errado"]
-        : [];
-
-    return (
-      <View style={{ gap: 8 }}>
-        {alternativas.map((alt, idx) => {
-          const selected = resposta === idx;
-          return (
-            <TouchableOpacity
-              key={idx}
-              onPress={() => onResponder(idx)}
-              style={[
-                styles.altBtn,
-                selected && styles.altBtnSelected,
-              ]}
-            >
-              <Text style={[styles.altText, selected && styles.altTextSelected]}>
-                {String.fromCharCode(65 + idx)}. {alt}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  }
-
-  if (questao.tipo === "objetiva_curta") {
-    return (
-      <TextInput
-        value={typeof resposta === "string" ? resposta : ""}
-        onChangeText={onResponder}
-        placeholder="Digite sua resposta"
-        style={styles.textInput}
-        autoCapitalize="sentences"
-      />
-    );
-  }
-
-  if (questao.tipo === "dissertativa") {
-    return (
-      <TextInput
-        value={typeof resposta === "string" ? resposta : ""}
-        onChangeText={onResponder}
-        placeholder="Digite sua resposta dissertativa..."
-        style={[styles.textInput, { minHeight: 120, textAlignVertical: "top", paddingTop: 12 }]}
-        multiline
-      />
-    );
-  }
-
-  // Tipos ricos: coloque seus componentes reais quando preferir.
-  if (questao.tipo === "bloco_rapido") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[bloco_rapido] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-  if (questao.tipo === "ligar_colunas") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[ligar_colunas] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-  if (questao.tipo === "completar") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[completar] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-  if (questao.tipo === "completar_topo") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[completar_topo] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-  if (questao.tipo === "tabela") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[tabela] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-  if (questao.tipo === "selecao_multipla") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[selecao_multipla] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-  if (questao.tipo === "colorir_figura") {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>[colorir_figura] — conecte o seu componente móvel aqui.</Text>
-      </View>
-    );
-  }
-
-  return <Text style={{ color: "#6B7280" }}>Tipo não suportado</Text>;
 }
 
 // ====== Tela principal ======
@@ -373,6 +254,10 @@ export default function ResolverSimuladoScreen() {
     setRespostas((prev) => ({ ...prev, [questaoId]: valor }));
   }, []);
 
+  const handlePause = useCallback(() => {
+    Alert.alert("Pausar simulado", "Função de pausa ainda não está disponível.");
+  }, []);
+
   async function concluir() {
     if (!simulado) return;
     try {
@@ -422,18 +307,11 @@ export default function ResolverSimuladoScreen() {
       <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={{ flex: 1 }}>
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6 }}>
-          <Text style={styles.title}>{simulado.nome}</Text>
-
-          <View style={styles.headerRow}>
-            <View style={styles.timerPill}>
-              <Ionicons name="time-outline" size={16} color="#7C3AED" />
-              <Text style={styles.timerText}>
-                {formatarHHMMSS(Math.max(0, tempoRestante ?? 0))}
-              </Text>
-            </View>
-
+          <View style={styles.titleRow}>
+            <View style={{ width: 24 }} />
+            <Text style={styles.title} numberOfLines={1}>Simulado Genius Q-Bank</Text>
             <TouchableOpacity
-              style={styles.finishBtn}
+              style={[styles.finishAction, finalizando && styles.finishActionDisabled]}
               onPress={() => {
                 Alert.alert(
                   "Encerrar simulado?",
@@ -446,7 +324,14 @@ export default function ResolverSimuladoScreen() {
               }}
               disabled={finalizando}
             >
-              {finalizando ? <ActivityIndicator /> : <Text style={styles.finishText}>Concluir</Text>}
+              {finalizando ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  <Text style={styles.finishActionText}>Concluir</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -457,22 +342,35 @@ export default function ResolverSimuladoScreen() {
             paginaAtual={paginaAtual}
             setPaginaAtual={setPaginaAtual}
           />
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.actionItem} onPress={handlePause}>
+              <Ionicons name="pause-outline" size={14} color="#6B7280" />
+              <Text style={styles.actionText}>Pausar</Text>
+            </TouchableOpacity>
+
+            <View style={styles.actionItem}>
+              <Ionicons name="time-outline" size={14} color="#6B7280" />
+              <Text style={styles.actionText}>
+                {formatarHHMMSS(Math.max(0, tempoRestante ?? 0))}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Corpo */}
-        <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: Math.max(16, insets.bottom) }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: Math.max(16, insets.bottom) }}
+          keyboardShouldPersistTaps="handled"
+        >
           {questaoAtual ? (
             <View style={styles.card}>
-              <Text style={styles.qHeader}>
-                Questão {paginaAtual} de {simulado.questoes.length}
-              </Text>
-              <Text style={styles.enunciado}>{questaoAtual.enunciado}</Text>
-
               <View style={{ marginTop: 12 }}>
-                <RespostaSimuladoMobile
+                <QuestaoSimuladoCard
                   questao={questaoAtual}
                   resposta={respostas[questaoAtual.id]}
-                  onResponder={(v) => handleResponder(questaoAtual.id, v)}
+                  onChange={(valor) => handleResponder(questaoAtual.id, valor)}
                 />
               </View>
 
@@ -507,7 +405,7 @@ export default function ResolverSimuladoScreen() {
               <Text style={{ color: "#6B7280" }}>Nenhuma questão disponível.</Text>
             </View>
           )}
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -516,13 +414,31 @@ export default function ResolverSimuladoScreen() {
 // ====== Estilos ======
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
-  title: { fontSize: 18, fontWeight: "800", color: "#111827" },
+  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  title: { fontSize: 15, color: "#111827", textAlign: "center", flex: 1, fontFamily: "Inter-SemiBold" },
 
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
-  timerPill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#F5F3FF", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  timerText: { color: "#7C3AED", fontWeight: "700" },
-  finishBtn: { backgroundColor: "#7C3AED", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
-  finishText: { color: "#fff", fontWeight: "800" },
+  progressSection: { marginTop: 4 },
+  progressRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  questionLabel: { fontSize: 16, color: "#111827", fontFamily: "Inter-SemiBold" },
+  progressTrack: { flex: 1, height: 6, backgroundColor: "#E5E7EB", borderRadius: 999, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 999, backgroundColor: "#8B5CF6" },
+  percentText: { fontSize: 12, color: "#8B5CF6", fontFamily: "Inter-SemiBold" },
+  dotRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
+
+  actionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
+  actionItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  actionText: { color: "#6B7280", fontFamily: "Inter-Medium", fontSize: 12 },
+  finishAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#10B981",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  finishActionText: { color: "#FFFFFF", fontFamily: "Inter-SemiBold", fontSize: 12 },
+  finishActionDisabled: { opacity: 0.6 },
 
   dot: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: "#E5E7EB" },
   dotActive: { borderColor: "#A78BFA", backgroundColor: "#F5F3FF" },
@@ -531,19 +447,6 @@ const styles = StyleSheet.create({
   dotTextActive: { color: "#5B21B6", fontWeight: "700" },
 
   card: { backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", padding: 14 },
-  qHeader: { fontSize: 12, color: "#6B7280", marginBottom: 6 },
-  enunciado: { fontSize: 16, color: "#111827", fontWeight: "600" },
-
-  altBtn: { paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#FFFFFF" },
-  altBtnSelected: { borderColor: "#7C3AED", backgroundColor: "#F5F3FF" },
-  altText: { color: "#111827" },
-  altTextSelected: { color: "#5B21B6", fontWeight: "700" },
-
-  textInput: { borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: "#111827" },
-
-  placeholder: { borderWidth: 1, borderColor: "#E5E7EB", borderStyle: "dashed", borderRadius: 10, padding: 14, backgroundColor: "#FAFAFA" },
-  placeholderText: { color: "#6B7280", fontSize: 12 },
-
   navRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16 },
   navBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: "#FFFFFF" },
   navText: { color: "#7C3AED", fontWeight: "700" },
