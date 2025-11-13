@@ -258,6 +258,10 @@ export default function DashboardScreen() {
     router.push(`/simulados/${simulado.id}/resolver`);
   };
 
+  const handleVerMeusSimulados = () => {
+    router.push('/simulados/meusSimulados');
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -523,7 +527,13 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Meus Simulados</Text>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
+              <TouchableOpacity
+                onPress={handleVerMeusSimulados}
+                accessibilityRole="button"
+                accessibilityLabel="Ver todos os simulados"
+              >
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.simuladoCard} onPress={handleOpenUltimoSimulado} activeOpacity={0.75}>
               <Text style={styles.simuladoTitle}>{data.ultimoSimulado.titulo}</Text>
@@ -553,7 +563,7 @@ export default function DashboardScreen() {
                   Status: {data.ultimoSimulado.status === 'finalizado' ? 'Finalizado' : data.ultimoSimulado.status === 'em-andamento' ? 'Em andamento' : data.ultimoSimulado.status === 'pausado' ? 'Pausado' : 'Não iniciado'}
                   {data.ultimoSimulado.desempenho !== null && ` • ${data.ultimoSimulado.desempenho}%`}
                 </Text>
-                <TouchableOpacity style={styles.simuladoButton} onPress={handleOpenUltimoSimulado} activeOpacity={0.75}>
+                <TouchableOpacity style={styles.simuladoButton} onPress={handleVerMeusSimulados} activeOpacity={0.75}>
                   <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>

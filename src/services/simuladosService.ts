@@ -26,6 +26,26 @@ export type GerarSimuladoPayload = FiltrosSimulado & {
   questoesPorMateria: { materiaId: string; quantidade: number }[];
 };
 
+// 👇 NOVOS TIPOS PARA A TELA "MEUS SIMULADOS"
+export interface SimuladoItem {
+  id: string;
+  nome: string;
+  data: string;
+  status: 'NAO_INICIADO' | 'PAUSADO' | 'CONCLUIDO';
+  progresso: {
+    respondidas: number;
+    total: number;
+  };
+  acertos: number;
+  tempoDecorrido: string | null;
+  statusExibicao: string | null;
+}
+
+export interface SimuladosResponse {
+  simulados: SimuladoItem[];
+  isEmpty: boolean;
+}
+
 function compact<T extends Record<string, any>>(obj: T): T {
   // remove chaves com array vazio / undefined / null
   const out: any = {};
@@ -68,6 +88,20 @@ export async function gerarSimulado(
     return { ...res.data, location };
   } catch (err: any) {
     const msg = err?.response?.data?.error ?? err?.message ?? "Erro ao criar o simulado";
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
+}
+
+// 👇 NOVA FUNÇÃO PARA BUSCAR OS ÚLTIMOS SIMULADOS
+export async function obterSimulados(signal?: AbortSignal): Promise<SimuladosResponse> {
+  try {
+    const { data } = await api.get<SimuladosResponse>(
+      "/mobile/v1/qbank/simulados",
+      { signal }
+    );
+    return data;
+  } catch (err: any) {
+    const msg = err?.response?.data?.error ?? err?.message ?? "Erro ao buscar simulados";
     throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
   }
 }
