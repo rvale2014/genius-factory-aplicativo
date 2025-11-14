@@ -144,12 +144,7 @@ export default function TrilhasScreen() {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.9}
-        onPress={() => {
-          // Navegação para a futura Tela do Caminho:
-          // router.push(`/trilhas/${item.id}/caminhos/${item.caminhoAtualId || ''}`);
-          // por enquanto, só um log para evitar erro se a rota ainda não existe
-          console.log('Abrir trilha:', item.id, 'caminho:', item.caminhoAtualId);
-        }}
+        onPress={() => router.push(`/trilhas/${item.id}/caminhos/${item.caminhoAtualId}`)}
       >
         <Image
           source={item.imagemUrl ? { uri: item.imagemUrl } : placeholderImage}
@@ -187,9 +182,15 @@ export default function TrilhasScreen() {
             <Text style={styles.ultimaAtiv} numberOfLines={1}>
               {item.ultimaAtividade ? item.ultimaAtividade : 'Ainda não iniciado'}
             </Text>
-            <View style={styles.goButton}>
+            <TouchableOpacity
+              style={styles.goButton}
+              onPress={() => router.push(`/trilhas/${item.id}/caminhos/${item.caminhoAtualId}`)}
+              accessibilityRole="button"
+              accessibilityLabel="Continuar trilha"
+              activeOpacity={0.8}
+            >
               <Ionicons name="chevron-forward" size={18} color="#FFF" />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>

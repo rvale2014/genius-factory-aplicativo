@@ -66,6 +66,13 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="cursos/[id]"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
         name="simulados/[id]/resumo"
         options={{
           tabBarButton: () => null,
@@ -88,6 +95,13 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="simulados/meusSimulados"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="trilhas/[id]/caminhos/[caminhoId]"
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

@@ -156,9 +156,10 @@ export default function CursosScreen() {
         style={styles.card}
         activeOpacity={0.9}
         onPress={() => {
-          // Ajuste para sua navegação quando a rota existir:
-          // router.push(`/cursos/${item.id}`)
-          console.log('Abrir curso:', item.id, 'prox aula:', item.progresso.proximaAulaId);
+          router.push({
+            pathname: '/cursos/[id]',
+            params: { id: item.id },
+          });
         }}
       >
         <Image

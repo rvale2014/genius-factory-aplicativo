@@ -230,6 +230,25 @@ export default function DashboardScreen() {
   }
 
   const rankingDisplay = data.aluno.posicaoGlobal > 0 ? `${data.aluno.posicaoGlobal}°` : '-';
+  const ultimaTrilha = data.ultimaTrilha;
+  const ultimoCursoId = data.ultimoCurso?.id;
+
+  const handleOpenUltimoCurso = () => {
+    if (!ultimoCursoId) return;
+    router.push({
+      pathname: '/cursos/[id]',
+      params: { id: ultimoCursoId },
+    });
+  };
+
+  const handleOpenUltimaTrilha = () => {
+    if (!ultimaTrilha) return;
+    if (!ultimaTrilha.caminhoAtualId) {
+      router.push('/trilhas');
+      return;
+    }
+    router.push(`/trilhas/${ultimaTrilha.id}/caminhos/${ultimaTrilha.caminhoAtualId}`);
+  };
 
   const handleOpenUltimoSimulado = () => {
     const simulado = data.ultimoSimulado;
@@ -447,7 +466,11 @@ export default function DashboardScreen() {
               <Text style={styles.sectionTitle}>Meus Cursos</Text>
               <Ionicons name="chevron-forward" size={20} color="#666" />
             </View>
-            <TouchableOpacity style={styles.cursoCard}>
+            <TouchableOpacity
+              style={styles.cursoCard}
+              activeOpacity={0.85}
+              onPress={handleOpenUltimoCurso}
+            >
               <ImageWithFallback
                 uri={data.ultimoCurso.imagemUrl}
                 style={styles.cursoImage}
@@ -471,7 +494,11 @@ export default function DashboardScreen() {
                   <Text style={styles.cursoInfoText} numberOfLines={1}>
                     {data.ultimoCurso.materiaNome || 'Sem matéria'}
                   </Text>
-                  <TouchableOpacity style={styles.cursoButton}>
+                  <TouchableOpacity
+                    style={styles.cursoButton}
+                    activeOpacity={0.8}
+                    onPress={handleOpenUltimoCurso}
+                  >
                     <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
@@ -481,39 +508,43 @@ export default function DashboardScreen() {
         )}
 
         {/* 6. Última Trilha */}
-        {data.ultimaTrilha && (
+        {ultimaTrilha && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Minhas Trilhas</Text>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
+              <TouchableOpacity onPress={handleOpenUltimaTrilha}>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.cursoCard}>
+            <TouchableOpacity
+              style={styles.cursoCard}
+              onPress={handleOpenUltimaTrilha}
+              activeOpacity={0.85}
+            >
               <ImageWithFallback
-                uri={data.ultimaTrilha.imagemUrl}
+                uri={ultimaTrilha.imagemUrl}
                 style={styles.cursoImage}
                 placeholder={placeholderImage}
               />
               <View style={styles.cursoContent}>
-                <Text style={styles.cursoTitle}>{data.ultimaTrilha.titulo}</Text>
+                <Text style={styles.cursoTitle}>{ultimaTrilha.titulo}</Text>
                 <View style={styles.progressContainer}>
                   <View style={styles.progressBar}>
                     <View
                       style={[
                         styles.progressFill,
-                        { width: `${data.ultimaTrilha.progressoPercentual}%` },
+                        { width: `${ultimaTrilha.progressoPercentual}%` },
                       ]}
                     />
                   </View>
-                  <Text style={styles.cursoProgresso}>
-                    {data.ultimaTrilha.progressoPercentual}%
-                  </Text>
+                  <Text style={styles.cursoProgresso}>{ultimaTrilha.progressoPercentual}%</Text>
                 </View>
                 <View style={styles.cursoInfo}>
                   <Ionicons name="book-outline" size={14} color="#666" />
                   <Text style={styles.cursoInfoText} numberOfLines={1}>
-                    {data.ultimaTrilha.materiaNome || 'Sem matéria'}
+                    {ultimaTrilha.materiaNome || 'Sem matéria'}
                   </Text>
-                  <TouchableOpacity style={styles.cursoButton}>
+                  <TouchableOpacity style={styles.cursoButton} onPress={handleOpenUltimaTrilha} activeOpacity={0.8}>
                     <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>

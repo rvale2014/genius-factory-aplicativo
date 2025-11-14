@@ -13,8 +13,8 @@ export const AtividadeSchema = z.object({
   id: z.string().cuid(),
   tipo: TipoAtividadeEnum,
   ativo: z.boolean(),
-  progresso: z.array(ProgressoSchema),     // a web mantém o array
-  concluido: z.boolean(),                  // campo calculado
+  progresso: z.array(ProgressoSchema),
+  concluido: z.boolean(),
 });
 
 export const BlocoSchema = z.object({
@@ -23,6 +23,8 @@ export const BlocoSchema = z.object({
   ordem: z.number().int(),
   atividades: z.array(AtividadeSchema),
 });
+export type Atividade = z.infer<typeof AtividadeSchema>;
+export type Bloco = z.infer<typeof BlocoSchema>;
 
 export const CaminhoAtualSchema = z.object({
   id: z.string().cuid(),
@@ -42,7 +44,8 @@ export const CaminhoResumoSchema = z.object({
 
 export const TrilhaHeaderSchema = z.object({
   id: z.string().cuid(),
-  titulo: z.string(),                      // web usa nome como titulo
+  titulo: z.string(),
+  materiaNome: z.string(), // ← ADICIONAR ESTA LINHA
   caminhos: z.array(CaminhoResumoSchema),
 });
 
