@@ -13,7 +13,7 @@ export function BlocoCard({ bloco, index, isDesbloqueado, isConcluido, onPress }
   // Define a cor do círculo baseado no estado
   const getCircleColor = () => {
     if (isConcluido) return '#10B981'; // Verde para concluído
-    if (isDesbloqueado) return '#7A34FF'; // Roxo para desbloqueado
+    if (isDesbloqueado) return '#FF5F96'; // Rosa-avermelhado moderado para desbloqueado
     return '#CBD5F5'; // Cinza claro para bloqueado
   };
 
@@ -29,9 +29,9 @@ export function BlocoCard({ bloco, index, isDesbloqueado, isConcluido, onPress }
         disabled={!isDesbloqueado}
         activeOpacity={0.8}
       >
-        <Text style={styles.numeroTexto}>
-          {index + 1}
-        </Text>
+    <Text style={styles.numeroTexto}>
+      {index + 1}
+    </Text>
       </TouchableOpacity>
 
       {/* Título (opcional - pode remover se quiser ainda mais minimalista) */}

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,10 +13,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { BlocoCard } from '../../../../../components/trilhas/BlocoCard';
 import { ModalCaminhos } from '../../../../../components/trilhas/ModalCaminhos';
-import { getGradienteMateria } from '../../../../../src/constants/materias';
+import { getMateriaVisualConfig } from '../../../../../src/constants/materias';
 import type { TrilhasCaminhoResponse } from '../../../../../src/schemas/trilhas.caminho-completo';
 import { obterCaminho } from '../../../../../src/services/caminhoService';
 
@@ -25,6 +26,10 @@ const CENTER_X = SCREEN_WIDTH / 2;
 const NODE_OFFSET = SCREEN_WIDTH * 0.16;
 const LEFT_NODE_X = CENTER_X - NODE_OFFSET;
 const RIGHT_NODE_X = CENTER_X + NODE_OFFSET;
+const PROGRESS_SIZE = 52;
+const PROGRESS_STROKE = 5;
+const PROGRESS_RADIUS = (PROGRESS_SIZE - PROGRESS_STROKE) / 2;
+const PROGRESS_CIRC = 2 * Math.PI * PROGRESS_RADIUS;
 
 function getInterFont(fontWeight?: string | number): string {
   if (!fontWeight) return 'Inter-Regular';
@@ -144,7 +149,12 @@ export default function CaminhoScreen() {
     };
   });
 
-  const gradiente = getGradienteMateria(data.trilha.materiaNome);
+  const {
+    gradient: gradiente,
+    decorImage: trilhaDecor,
+    secondaryDecorImage: trilhaDecorSecondary,
+  } = getMateriaVisualConfig(data.trilha.materiaNome);
+  const progressOffset = PROGRESS_CIRC * (1 - percentualGeral / 100);
 
   return (
     <View style={styles.container}>
@@ -154,48 +164,73 @@ export default function CaminhoScreen() {
         locations={[0, 0.4, 1]}
         style={styles.backgroundGradient}
       />
+      <Image source={trilhaDecor} style={styles.robotImage} resizeMode="contain" />
+      <Image
+        source={trilhaDecorSecondary}
+        style={styles.kidsImage}
+        resizeMode="contain"
+      />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Header Compacto */}
-        <View style={styles.header}>
+        {/* Topo com nome da trilha */}
+        <View style={styles.topBar}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+          <Text style={styles.topBarTitle} numberOfLines={1}>
+            {data.trilha.titulo}
+          </Text>
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={() => router.push('/trilhas')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
 
+        {/* Header Caminho */}
+        <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerCenter}
             onPress={() => setModalCaminhosVisible(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {data.caminho.nome}
+            <Text style={styles.headerTitle} numberOfLines={2}>
+              {data.caminho.ordem + 1}. {data.caminho.nome}
             </Text>
             <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Botão de estatísticas ou info (opcional) */}
-          <TouchableOpacity style={styles.infoButton}>
-            <Ionicons name="information-circle-outline" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Barra de Progresso Compacta */}
-        <View style={styles.progressSection}>
-          <View style={styles.progressBarContainer}>
-            <View 
-              style={[
-                styles.progressBarFill,
-                { width: `${percentualGeral}%` }
-              ]} 
-            />
+          <View style={styles.progressCircle}>
+            <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
+              <Circle
+                cx={PROGRESS_SIZE / 2}
+                cy={PROGRESS_SIZE / 2}
+                r={PROGRESS_RADIUS}
+                stroke="#FFFFFF"
+                strokeWidth={PROGRESS_STROKE}
+                fill="none"
+              />
+              <Circle
+                cx={PROGRESS_SIZE / 2}
+                cy={PROGRESS_SIZE / 2}
+                r={PROGRESS_RADIUS}
+                stroke="#1CC5A5"
+                strokeWidth={PROGRESS_STROKE}
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
+                strokeDashoffset={progressOffset}
+                transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
+              />
+            </Svg>
+            <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
           </View>
-          <Text style={styles.progressText}>
-            {percentualGeral}% completo
-          </Text>
         </View>
 
         {/* Caminho de Blocos (estilo Duolingo) */}
@@ -289,6 +324,24 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  robotImage: {
+    position: 'absolute',
+    top: '33%',
+    right: 150,
+    width: 240,
+    height: 200,
+    opacity: 0.35,
+    pointerEvents: 'none',  
+  },
+  kidsImage: {
+    position: 'absolute',
+    bottom: '10%',
+    left: 140,
+    width: 320,
+    height: 290,
+    opacity: 0.35,
+    pointerEvents: 'none',
+  },
   safeArea: {
     flex: 1,
   },
@@ -329,12 +382,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  topBarTitle: {
+    flex: 1,
+    fontSize: 15,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   backButton: {
     width: 44,
@@ -343,46 +411,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerCenter: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 8,
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
     color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
+    fontFamily: getInterFont('500'),
+    flexShrink: 1,
+    marginRight: 6,
+  },
+  progressCircle: {
+    width: PROGRESS_SIZE,
+    height: PROGRESS_SIZE,
+    marginLeft: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressCircleText: {
+    position: 'absolute',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
   },
   infoButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  progressSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    alignItems: 'center',
-  },
-  progressBarContainer: {
-    width: '100%',
-    height: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 5,
-  },
-  progressText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontFamily: 'Inter-Medium',
   },
   scrollView: {
     flex: 1,

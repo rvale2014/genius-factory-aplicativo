@@ -1,5 +1,5 @@
 // app/(app)/simulados/[id]/resultado.tsx
-import VisualizarQuestaoSheet from "@/components/sheets/VisualizarQuestaoSheet";
+import VisualizarQuestaoResultadoSheet from "@/components/sheets/VisualizarQuestaoSimuladoSheet";
 import { obterResultadoSimulado, refazerSimulado, ResultadoQuestao } from "@/src/services/simuladosResultadoService";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -194,7 +194,7 @@ export default function ResultadoScreen() {
       </ScrollView>
 
       {/* Bottom Sheet de correção */}
-      <VisualizarQuestaoSheet
+      <VisualizarQuestaoResultadoSheet
         open={openSheet}
         onClose={() => setOpenSheet(false)}
         simuladoId={data.id}

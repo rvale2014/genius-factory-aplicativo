@@ -25,6 +25,15 @@ interface ModalAulasProps {
   percentualProgresso: number;
 }
 
+function getInterFont(fontWeight?: string | number): string {
+  if (!fontWeight) return 'Inter-Regular';
+  const weight = typeof fontWeight === 'string' ? parseInt(fontWeight) : fontWeight;
+  if (weight >= 700) return 'Inter-Bold';
+  if (weight >= 600) return 'Inter-SemiBold';
+  if (weight >= 500) return 'Inter-Medium';
+  return 'Inter-Regular';
+}
+
 export function ModalAulas({
   aulas,
   statusAulas,
@@ -38,10 +47,16 @@ export function ModalAulas({
   percentualProgresso,
 }: ModalAulasProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['50%', '90%'], []);
+  const snapPoints = useMemo(() => ['30%'], []);
   const [expandedAulas, setExpandedAulas] = React.useState<Set<string>>(
     new Set([aulaSelecionadaId || ''])
   );
+
+  const handleSheetChange = useCallback((index: number) => {
+    if (index !== 0) {
+      bottomSheetRef.current?.snapToIndex(0);
+    }
+  }, []);
 
   const toggleAula = useCallback((aulaId: string) => {
     setExpandedAulas((prev) => {
@@ -59,7 +74,11 @@ export function ModalAulas({
     <BottomSheet
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      index={0}
       enablePanDownToClose={false}
+      enableHandlePanningGesture={false}
+      enableOverDrag={false}
+      onChange={handleSheetChange}
       handleIndicatorStyle={styles.handleIndicator}
       backgroundStyle={styles.background}
     >
@@ -122,6 +141,7 @@ export function ModalAulas({
                     style={[
                       styles.aulaNome,
                       isSelecionada && styles.aulaNomeSelecionada,
+                      aulaConcluida && styles.aulaNomeConcluida,
                     ]}
                     numberOfLines={2}
                   >
@@ -238,10 +258,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 16,
     color: '#333',
-    fontFamily: 'Inter-Bold',
+    fontFamily: getInterFont('700'),
   },
   progressoBadge: {
     backgroundColor: '#7A34FF',
@@ -253,7 +272,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
-    fontFamily: 'Inter-Bold',
+    fontFamily: getInterFont('700'),
   },
   aulasList: {
     gap: 12,
@@ -267,52 +286,56 @@ const styles = StyleSheet.create({
   aulaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    gap: 12,
+    gap: 10,
   },
   aulaHeaderSelecionada: {
     backgroundColor: '#7A34FF',
   },
   aulaHeaderConcluida: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#FFFFFF',
   },
   aulaNumero: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+    backgroundColor: '#8B5CF6',
   },
   aulaNumeroSelecionada: {
     backgroundColor: '#FFFFFF',
     borderColor: '#FFFFFF',
   },
   aulaNumeroCompleta: {
-    backgroundColor: '#7A34FF',
-    borderColor: '#7A34FF',
+    borderColor: '#16A34A',
+    backgroundColor: '#16A34A',
   },
   aulaNumeroTexto: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
-    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
+    fontFamily: getInterFont('600'),
   },
   aulaNumeroTextoSelecionada: {
     color: '#7A34FF',
   },
   aulaNome: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     color: '#333',
-    fontFamily: 'Inter-Medium',
+    fontFamily: getInterFont('500'),
   },
   aulaNomeSelecionada: {
     color: '#FFFFFF',
+  },
+  aulaNomeConcluida: {
+    color: '#333',
   },
   expandIconContainer: {
     width: 24,
@@ -338,12 +361,12 @@ const styles = StyleSheet.create({
   videoTexto: {
     fontSize: 13,
     color: '#666',
-    fontFamily: 'Inter-Regular',
+    fontFamily: getInterFont(),
   },
   videoTextoAtual: {
     color: '#7A34FF',
     fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: getInterFont('600'),
   },
   checkButton: {
     width: 24,

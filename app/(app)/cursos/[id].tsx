@@ -66,6 +66,7 @@ export default function CursoDetalhesScreen() {
   // Estados de conquistas
   const [filaConquistas, setFilaConquistas] = useState<NovaConquista[]>([]);
   const [modalConquistaAberto, setModalConquistaAberto] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState<'aula' | 'materiais' | 'duvidas'>('aula');
 
   // Computar lista de vídeos
   const videos: VideoComAula[] = useMemo(() => {
@@ -77,6 +78,11 @@ export default function CursoDetalhesScreen() {
   }, [aulas]);
 
   const videoAtual = videos[indiceVideoAtual] || null;
+  const videoConcluido =
+    !!videoAtual &&
+    !!statusAulas[videoAtual.aula.id]?.conteudosConcluidos?.includes(
+      videoAtual.conteudo.id
+    );
   const totalVideos = videos.length;
 
   // Progresso do curso
@@ -360,44 +366,88 @@ export default function CursoDetalhesScreen() {
             />
 
             {/* Info do vídeo */}
-            <View style={styles.videoInfo}>
-              <Text style={styles.videoTitulo}>
-                Aula {aulas.findIndex((a) => a.id === videoAtual.aula.id) + 1} -{' '}
-                {videoAtual.aula.nome}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.concluidoButton,
-                  statusAulas[videoAtual.aula.id]?.conteudosConcluidos.includes(
-                    videoAtual.conteudo.id
-                  ) && styles.concluidoButtonAtivo,
-                ]}
-                onPress={() =>
-                  toggleConteudo(
-                    videoAtual.conteudo.id,
-                    videoAtual.aula.id,
-                    statusAulas[videoAtual.aula.id]?.conteudosConcluidos.includes(
-                      videoAtual.conteudo.id
-                    )
-                  )
-                }
-              >
-                <Text
+            <View style={styles.tabsWrapper}>
+              {[
+                { id: 'aula', label: 'Aula' },
+                { id: 'materiais', label: 'Livros Digitais' },
+                { id: 'duvidas', label: 'Dúvidas' },
+              ].map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
                   style={[
-                    styles.concluidoButtonText,
-                    statusAulas[videoAtual.aula.id]?.conteudosConcluidos.includes(
-                      videoAtual.conteudo.id
-                    ) && styles.concluidoButtonTextAtivo,
+                    styles.tabButton,
+                    abaAtiva === tab.id && styles.tabButtonAtiva,
                   ]}
+                  onPress={() => setAbaAtiva(tab.id as typeof abaAtiva)}
+                  activeOpacity={0.9}
                 >
-                  {statusAulas[videoAtual.aula.id]?.conteudosConcluidos.includes(
-                    videoAtual.conteudo.id
-                  )
-                    ? 'Concluído ✓'
-                    : 'Marcar como concluído'}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.tabButtonText,
+                      abaAtiva === tab.id && styles.tabButtonTextAtiva,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+
+            {abaAtiva === 'aula' && (
+              <View style={styles.videoInfo}>
+                <View style={styles.videoInfoHeader}>
+                  <Text style={styles.videoTitulo}>
+                    Aula {aulas.findIndex((a) => a.id === videoAtual.aula.id) + 1} -{' '}
+                    {videoAtual.aula.nome}
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.statusToggle,
+                      videoConcluido && styles.statusToggleActive,
+                    ]}
+                    onPress={() =>
+                      toggleConteudo(
+                        videoAtual.conteudo.id,
+                        videoAtual.aula.id,
+                        videoConcluido
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      videoConcluido
+                        ? 'Marcar aula como não concluída'
+                        : 'Marcar aula como concluída'
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={videoConcluido ? 'checkmark' : 'checkmark-outline'}
+                      size={18}
+                      color={videoConcluido ? '#16A34A' : '#94A3B8'}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {abaAtiva === 'materiais' && (
+              <View style={styles.tabContent}>
+                <Text style={styles.tabContentTitle}>Livros Digitais</Text>
+                <Text style={styles.tabContentText}>
+                  Em breve você poderá acessar aqui os livros digitais desta aula.
+                </Text>
+              </View>
+            )}
+
+            {abaAtiva === 'duvidas' && (
+              <View style={styles.tabContent}>
+                <Text style={styles.tabContentTitle}>Dúvidas</Text>
+                <Text style={styles.tabContentText}>
+                  Tire suas dúvidas com nossos professores direto pelo fórum da aula
+                  (disponível em breve).
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -488,8 +538,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 15,
     color: '#333',
     textAlign: 'center',
     marginHorizontal: 12,
@@ -510,6 +559,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  tabsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    padding: 2,
+    marginTop: 16,
+    gap: 0,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabButtonAtiva: {
+    backgroundColor: '#FFFFFF',
+  },
+  tabButtonText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: getInterFont('500'),
+  },
+  tabButtonTextAtiva: {
+    color: '#111827',
+    fontFamily: getInterFont('500'),
+  },
   navButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -527,32 +606,50 @@ const styles = StyleSheet.create({
   },
   videoInfo: {
     marginTop: 16,
+    gap: 6,
+  },
+  videoInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  videoTitulo: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    fontFamily: getInterFont('700'),
+  tabContent: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
   },
-  concluidoButton: {
-    backgroundColor: '#E5E7EB',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  concluidoButtonAtivo: {
-    backgroundColor: '#7A34FF',
-  },
-  concluidoButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+  tabContentTitle: {
+    fontSize: 16,
+    color: '#0F172A',
     fontFamily: getInterFont('600'),
   },
-  concluidoButtonTextAtivo: {
-    color: '#FFFFFF',
+  tabContentText: {
+    fontSize: 14,
+    color: '#475569',
+    fontFamily: getInterFont('400'),
+  },
+  videoTitulo: {
+    fontSize: 16,
+    color: '#333',
+    fontFamily: getInterFont('500'),
+  },
+  statusToggle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusToggleActive: {
+    borderColor: '#A7F3D0',
+    backgroundColor: '#ECFDF5',
   },
 });
 

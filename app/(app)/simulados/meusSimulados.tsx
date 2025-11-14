@@ -4,12 +4,12 @@ import { useRouter } from 'expo-router';
 import { Clock, FileText } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { obterSimulados, type SimuladoItem } from '../../../src/services/simuladosService';
@@ -169,7 +169,15 @@ export default function MeusSimuladosScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {simulados.map((simulado) => (
+        {simulados.map((simulado) => {
+          const percentualAcertos =
+            typeof simulado.desempenhoPercentual === 'number'
+              ? Math.round(simulado.desempenhoPercentual)
+              : simulado.progresso.total > 0
+              ? Math.round((simulado.acertos / simulado.progresso.total) * 100)
+              : null;
+
+          return (
           <TouchableOpacity
             key={simulado.id}
             style={styles.simuladoCard}
@@ -189,13 +197,31 @@ export default function MeusSimuladosScreen() {
                 <View style={styles.infoItem}>
                   <Ionicons name="document-text-outline" size={16} color="#666" />
                   <Text style={styles.infoText}>
-                    {simulado.progresso.respondidas}/{simulado.progresso.total}
+                    {simulado.acertos}/{simulado.progresso.total}
                   </Text>
                 </View>
 
-                <View style={styles.infoItem}>
-                  <Ionicons name="checkmark-circle-outline" size={16} color="#14b8a6" />
-                  <Text style={styles.infoText}>{simulado.acertos} acertos</Text>
+                <View style={[styles.infoItem, styles.infoItemRight]}>
+                  {percentualAcertos !== null && percentualAcertos < 50 ? (
+                    <Ionicons name="warning-outline" size={16} color="#EF4444" />
+                  ) : (
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={16}
+                      color={
+                        percentualAcertos !== null &&
+                        percentualAcertos >= 50 &&
+                        percentualAcertos < 60
+                          ? '#FBBF24'
+                          : '#14b8a6'
+                      }
+                    />
+                  )}
+                  <Text style={styles.infoText}>
+                    {percentualAcertos !== null
+                      ? `${percentualAcertos}%`
+                      : `${simulado.acertos} acertos`}
+                  </Text>
                 </View>
               </View>
 
@@ -235,7 +261,8 @@ export default function MeusSimuladosScreen() {
               </View>
             </View>
           </TouchableOpacity>
-        ))}
+        );
+        })}
 
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -246,7 +273,7 @@ export default function MeusSimuladosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -262,9 +289,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 18,
-    color: '#333',
-    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 15,
+    color: '#111827',
+    fontFamily: getInterFont('600'),
   },
   scrollContent: {
     padding: 20,
@@ -276,8 +303,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    color: '#4B5563',
     fontFamily: getInterFont('400'),
   },
   errorContainer: {
@@ -288,7 +315,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#b00020',
     textAlign: 'center',
     fontFamily: getInterFont('400'),
@@ -314,17 +341,17 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#333',
     textAlign: 'center',
     fontFamily: getInterFont('700'),
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     fontFamily: getInterFont('400'),
   },
   simuladoCard: {
@@ -340,13 +367,17 @@ const styles = StyleSheet.create({
   },
   simuladoHeader: {
     marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   simuladoNome: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 6,
     fontFamily: getInterFont('600'),
+    flexShrink: 1,
   },
   simuladoDateContainer: {
     flexDirection: 'row',
@@ -370,8 +401,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  infoItemRight: {
+    marginLeft: 'auto',
+  },
   infoText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     fontFamily: getInterFont('400'),
   },
@@ -386,7 +420,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   tempoText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FF9800',
     fontFamily: getInterFont('700'),
@@ -406,7 +440,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     fontFamily: getInterFont('600'),
   },

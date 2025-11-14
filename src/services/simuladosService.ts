@@ -32,6 +32,7 @@ export interface SimuladoItem {
   nome: string;
   data: string;
   status: 'NAO_INICIADO' | 'PAUSADO' | 'CONCLUIDO';
+  desempenhoPercentual?: number | null;
   progresso: {
     respondidas: number;
     total: number;

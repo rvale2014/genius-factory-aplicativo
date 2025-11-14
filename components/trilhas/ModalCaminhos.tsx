@@ -65,116 +65,119 @@ export function ModalCaminhos({
           </View>
 
           {/* Lista de Caminhos */}
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {trilha.caminhos.map((caminho, index) => {
-              const isAtual = caminho.id === caminhoAtualId;
-              const isConcluido = caminho.percentual === 100;
-              const isDesbloqueado = index === 0 || 
-                trilha.caminhos[index - 1].percentual === 100;
+          <View style={styles.listWrapper}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+            >
+              {trilha.caminhos.map((caminho, index) => {
+                const isAtual = caminho.id === caminhoAtualId;
+                const isConcluido = caminho.percentual === 100;
+                const isDesbloqueado = index === 0 || 
+                  trilha.caminhos[index - 1].percentual === 100;
 
-              return (
-                <TouchableOpacity
-                  key={caminho.id}
-                  style={[
-                    styles.caminhoCard,
-                    isAtual && styles.caminhoCardAtual,
-                    !isDesbloqueado && styles.caminhoCardBloqueado,
-                  ]}
-                  onPress={() => {
-                    if (isDesbloqueado) {
-                      onSelecionarCaminho(caminho.id);
-                    }
-                  }}
-                  disabled={!isDesbloqueado}
-                  activeOpacity={0.7}
-                >
-                  {/* Número e Status */}
-                  <View style={[
-                    styles.caminhoNumero,
-                    isAtual && styles.caminhoNumeroAtual,
-                    isConcluido && styles.caminhoNumeroConcluido,
-                    !isDesbloqueado && styles.caminhoNumeroBloqueado,
-                  ]}>
-                    {isConcluido ? (
-                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    ) : !isDesbloqueado ? (
-                      <Ionicons name="lock-closed" size={20} color="#9CA3AF" />
-                    ) : (
-                      <Text style={[
-                        styles.caminhoNumeroTexto,
-                        isAtual && styles.caminhoNumeroTextoAtual,
-                      ]}>
-                        {caminho.ordem + 1}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Informações */}
-                  <View style={styles.caminhoInfo}>
-                    <Text 
-                      style={[
-                        styles.caminhoNome,
-                        !isDesbloqueado && styles.caminhoNomeBloqueado,
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {caminho.nome}
-                    </Text>
-                    
-                    <View style={styles.caminhoStats}>
-                      <Text style={[
-                        styles.caminhoStatsTexto,
-                        !isDesbloqueado && styles.caminhoStatsTextoBloqueado,
-                      ]}>
-                        {caminho.concluidas}/{caminho.totalAtividades} atividades
-                      </Text>
-                      
-                      {isDesbloqueado && (
-                        <>
-                          <View style={styles.separator} />
-                          <Text style={styles.caminhoPercentual}>
-                            {caminho.percentual}%
-                          </Text>
-                        </>
+                return (
+                  <TouchableOpacity
+                    key={caminho.id}
+                    style={[
+                      styles.caminhoCard,
+                      isAtual && styles.caminhoCardAtual,
+                      !isDesbloqueado && styles.caminhoCardBloqueado,
+                    ]}
+                    onPress={() => {
+                      if (isDesbloqueado) {
+                        onSelecionarCaminho(caminho.id);
+                      }
+                    }}
+                    disabled={!isDesbloqueado}
+                    activeOpacity={0.7}
+                  >
+                    {/* Número e Status */}
+                    <View style={[
+                      styles.caminhoNumero,
+                      isAtual && styles.caminhoNumeroAtual,
+                      isConcluido && styles.caminhoNumeroConcluido,
+                      !isDesbloqueado && styles.caminhoNumeroBloqueado,
+                    ]}>
+                      {isConcluido ? (
+                        <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                      ) : !isDesbloqueado ? (
+                        <Ionicons name="lock-closed" size={20} color="#9CA3AF" />
+                      ) : (
+                        <Text style={[
+                          styles.caminhoNumeroTexto,
+                          isAtual && styles.caminhoNumeroTextoAtual,
+                        ]}>
+                          {caminho.ordem + 1}
+                        </Text>
                       )}
                     </View>
 
-                    {/* Barra de Progresso */}
-                    {isDesbloqueado && (
-                      <View style={styles.progressBar}>
-                        <View 
-                          style={[
-                            styles.progressFill,
-                            { width: `${caminho.percentual}%` }
-                          ]} 
-                        />
+                    {/* Informações */}
+                    <View style={styles.caminhoInfo}>
+                      <Text 
+                        style={[
+                          styles.caminhoNome,
+                          !isDesbloqueado && styles.caminhoNomeBloqueado,
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {caminho.nome}
+                      </Text>
+                      
+                      <View style={styles.caminhoStats}>
+                        <Text style={[
+                          styles.caminhoStatsTexto,
+                          !isDesbloqueado && styles.caminhoStatsTextoBloqueado,
+                        ]}>
+                          {caminho.concluidas}/{caminho.totalAtividades} atividades
+                        </Text>
+                        
+                        {isDesbloqueado && (
+                          <>
+                            <View style={styles.separator} />
+                            <Text style={styles.caminhoPercentual}>
+                              {caminho.percentual}%
+                            </Text>
+                          </>
+                        )}
+                      </View>
+
+                      {/* Barra de Progresso */}
+                      {isDesbloqueado && (
+                        <View style={styles.progressBar}>
+                          <View 
+                            style={[
+                              styles.progressFill,
+                              { width: `${caminho.percentual}%` }
+                            ]} 
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Badge "Atual" */}
+                    {isAtual && (
+                      <View style={styles.badgeAtual}>
+                        <Text style={styles.badgeAtualTexto}>Atual</Text>
                       </View>
                     )}
-                  </View>
 
-                  {/* Badge "Atual" */}
-                  {isAtual && (
-                    <View style={styles.badgeAtual}>
-                      <Text style={styles.badgeAtualTexto}>Atual</Text>
-                    </View>
-                  )}
-
-                  {/* Seta */}
-                  {isDesbloqueado && !isAtual && (
-                    <Ionicons 
-                      name="chevron-forward" 
-                      size={20} 
-                      color="#9CA3AF" 
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                    {/* Seta */}
+                    {isDesbloqueado && !isAtual && (
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={20} 
+                        color="#9CA3AF" 
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
         </View>
       </View>
     </Modal>
@@ -191,7 +194,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: SCREEN_HEIGHT * 0.85,
+    height: SCREEN_HEIGHT * 0.85,
+    width: '100%',
     paddingBottom: 20,
   },
   header: {
@@ -227,12 +231,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  listWrapper: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 20,
     paddingTop: 16,
+    paddingBottom: 40,
   },
   caminhoCard: {
     flexDirection: 'row',

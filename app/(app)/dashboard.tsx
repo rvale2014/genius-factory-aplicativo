@@ -464,7 +464,12 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Meus Cursos</Text>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
+              <TouchableOpacity
+                onPress={() => router.push('/cursos')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={styles.cursoCard}
@@ -512,7 +517,10 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Minhas Trilhas</Text>
-              <TouchableOpacity onPress={handleOpenUltimaTrilha}>
+              <TouchableOpacity
+                onPress={() => router.push('/trilhas')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Ionicons name="chevron-forward" size={20} color="#666" />
               </TouchableOpacity>
             </View>
@@ -566,11 +574,15 @@ export default function DashboardScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#666" />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.simuladoCard} onPress={handleOpenUltimoSimulado} activeOpacity={0.75}>
+            <TouchableOpacity
+              style={styles.simuladoCard}
+              onPress={handleOpenUltimoSimulado}
+              activeOpacity={0.75}
+            >
               <Text style={styles.simuladoTitle}>{data.ultimoSimulado.titulo}</Text>
               <View style={styles.simuladoInfo}>
                 <Ionicons name="book-outline" size={16} color="#666" />
-                <Text style={styles.simuladoInfoText}>
+                <Text style={styles.simuladoInfoText} numberOfLines={1}>
                   {data.ultimoSimulado.materias.length > 0
                     ? data.ultimoSimulado.materias.join(', ')
                     : 'Sem matéria especificada'}
@@ -594,7 +606,11 @@ export default function DashboardScreen() {
                   Status: {data.ultimoSimulado.status === 'finalizado' ? 'Finalizado' : data.ultimoSimulado.status === 'em-andamento' ? 'Em andamento' : data.ultimoSimulado.status === 'pausado' ? 'Pausado' : 'Não iniciado'}
                   {data.ultimoSimulado.desempenho !== null && ` • ${data.ultimoSimulado.desempenho}%`}
                 </Text>
-                <TouchableOpacity style={styles.simuladoButton} onPress={handleVerMeusSimulados} activeOpacity={0.75}>
+                <TouchableOpacity
+                  style={styles.simuladoButton}
+                  onPress={handleOpenUltimoSimulado}
+                  activeOpacity={0.75}
+                >
                   <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>

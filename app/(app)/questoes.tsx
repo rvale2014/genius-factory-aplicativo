@@ -997,7 +997,10 @@ useEffect(() => {
     </View>
 
             {/* botão secundário */}
-            <TouchableOpacity style={styles.secondaryBtn} onPress={() => {/* navega para lista de simulados */}}>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={() => router.push('/simulados/meusSimulados')}
+            >
               <Text style={styles.secondaryBtnText}>Ver todos os meus simulados</Text>
             </TouchableOpacity>
           </ScrollView>

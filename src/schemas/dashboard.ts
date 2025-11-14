@@ -1,6 +1,13 @@
 // src/schemas/dashboard.ts
 import { z } from 'zod';
 
+const PercentIntSchema = z.preprocess((value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.min(100, Math.max(0, Math.round(value)));
+  }
+  return value;
+}, z.number().int().min(0).max(100));
+
 export const DashboardAlunoSchema = z.object({
   id: z.string(),
   nome: z.string(),
@@ -20,7 +27,7 @@ export const DashboardUltimoCursoSchema = z.object({
   id: z.string(),
   titulo: z.string(),
   imagemUrl: z.union([z.string().url(), z.null(), z.literal('')]),
-  progressoPercentual: z.number().int().min(0).max(100),
+  progressoPercentual: PercentIntSchema,
   ultimaAulaNome: z.string(),
   materiaNome: z.string().nullable(),
 });
@@ -29,7 +36,7 @@ export const DashboardUltimaTrilhaSchema = z.object({
   id: z.string(),
   titulo: z.string(),
   imagemUrl: z.union([z.string().url(), z.null(), z.literal('')]),
-  progressoPercentual: z.number().int().min(0).max(100),
+  progressoPercentual: PercentIntSchema,
   ultimaAulaNome: z.string(),
   caminhoAtualId: z.string().optional(),
   materiaNome: z.string().nullable(),
@@ -40,7 +47,7 @@ export const DashboardSimuladoSchema = z.object({
   titulo: z.string(),
   materias: z.array(z.string()),
   status: z.enum(['finalizado', 'pausado', 'nao-iniciado', 'em-andamento']),
-  desempenho: z.number().int().min(0).max(100).nullable(),
+  desempenho: PercentIntSchema.nullable(),
 });
 
 export const DashboardResponseSchema = z.object({
