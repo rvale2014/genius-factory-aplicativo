@@ -99,11 +99,11 @@ export default function MeusSimuladosScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
+          <TouchableOpacity onPress={() => router.push('/(app)/dashboard')} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={18} color="#EB1480" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Meus Simulados</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FF5FDB" />
@@ -117,11 +117,11 @@ export default function MeusSimuladosScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
+          <TouchableOpacity onPress={() => router.push('/(app)/dashboard')} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={18} color="#EB1480" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Meus Simulados</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#b00020" />
@@ -138,11 +138,11 @@ export default function MeusSimuladosScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
+          <TouchableOpacity onPress={() => router.push('/(app)/dashboard')} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={18} color="#EB1480" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Meus Simulados</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.emptyContainer}>
           <FileText size={64} color="#E0E0E0" strokeWidth={1.5} />
@@ -158,11 +158,11 @@ export default function MeusSimuladosScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
+        <TouchableOpacity onPress={() => router.push('/(app)/dashboard')} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={18} color="#EB1480" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Meus Simulados</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -256,7 +256,7 @@ export default function MeusSimuladosScreen() {
                   style={styles.actionButton}
                   onPress={() => handleSimuladoPress(simulado)}
                 >
-                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                  <Ionicons name="chevron-forward" size={13} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -282,16 +282,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   backButton: {
-    padding: 4,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 15,
-    color: '#111827',
-    fontFamily: getInterFont('600'),
+    color: '#333',
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  headerSpacer: {
+    width: 32,
   },
   scrollContent: {
     padding: 20,
@@ -355,15 +359,12 @@ const styles = StyleSheet.create({
     fontFamily: getInterFont('400'),
   },
   simuladoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   simuladoHeader: {
     marginBottom: 12,
@@ -445,10 +446,10 @@ const styles = StyleSheet.create({
     fontFamily: getInterFont('600'),
   },
   actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#14b8a6',
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: '#30C58E',
     justifyContent: 'center',
     alignItems: 'center',
   },

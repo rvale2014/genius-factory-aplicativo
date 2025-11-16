@@ -400,7 +400,12 @@ export default function DashboardScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.navCard}>
+            <TouchableOpacity
+              style={styles.navCard}
+              onPress={() => router.push('/(app)/performance')}
+              accessibilityRole="button"
+              accessibilityLabel="Ir para Performance"
+            >
               <View style={[styles.navCardIcon, { backgroundColor: '#FFF0F8' }]}>
                 <Gauge size={22} color="#FF5FDB" strokeWidth={2} />
               </View>
@@ -409,7 +414,12 @@ export default function DashboardScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.navCard}>
+            <TouchableOpacity
+              style={styles.navCard}
+              onPress={() => router.push('/(app)/ranking')}
+              accessibilityRole="button"
+              accessibilityLabel="Ir para Ranking"
+            >
               <View style={[styles.navCardIcon, { backgroundColor: '#FFF0F8' }]}>
                 <Trophy size={22} color="#FF5FDB" strokeWidth={2} />
               </View>
@@ -418,7 +428,12 @@ export default function DashboardScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.navCard}>
+            <TouchableOpacity
+              style={styles.navCard}
+              onPress={() => router.push('/(app)/conquistas')}
+              accessibilityRole="button"
+              accessibilityLabel="Ir para Conquistas"
+            >
               <View style={[styles.navCardIcon, { backgroundColor: '#FFF0F8' }]}>
                 <Award size={22} color="#FF5FDB" strokeWidth={2} />
               </View>
@@ -504,7 +519,7 @@ export default function DashboardScreen() {
                     activeOpacity={0.8}
                     onPress={handleOpenUltimoCurso}
                   >
-                    <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+                    <Ionicons name="chevron-forward" size={13} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -553,7 +568,7 @@ export default function DashboardScreen() {
                     {ultimaTrilha.materiaNome || 'Sem matéria'}
                   </Text>
                   <TouchableOpacity style={styles.cursoButton} onPress={handleOpenUltimaTrilha} activeOpacity={0.8}>
-                    <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+                    <Ionicons name="chevron-forward" size={13} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -696,17 +711,7 @@ const styles = StyleSheet.create({
   mainCard: {
     marginHorizontal: 20,
     marginBottom: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   bannerAluno: {
     borderRadius: 12,
@@ -932,11 +937,11 @@ const styles = StyleSheet.create({
   },
   navCardText: {
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#333',
     textAlign: 'center',
     flexShrink: 1,
-    fontFamily: getInterFont('600'),
+    fontFamily: getInterFont('500'),
     marginTop: -4,
   },
   bannerScroll: {
@@ -992,19 +997,17 @@ const styles = StyleSheet.create({
   },
   cursoCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   cursoImage: {
     width: 150,
     height: 100,
     backgroundColor: '#F5F5F5',
+    margin: 8,
+    borderRadius: 8,
   },
   cursoContent: {
     flex: 1,
@@ -1054,23 +1057,19 @@ const styles = StyleSheet.create({
     fontFamily: getInterFont('700'),
   },
   cursoButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#14b8a6',
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: '#30C58E',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
   },
   simuladoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   simuladoTitle: {
     fontSize: 13,
@@ -1092,10 +1091,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   simuladoButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#14b8a6',
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: '#30C58E',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,

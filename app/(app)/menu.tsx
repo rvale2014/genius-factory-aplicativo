@@ -1,6 +1,7 @@
 import { useAlunoHeader } from '@/src/hooks/useAlunoHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Award, Gauge, LogOut, Trophy, User } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -9,14 +10,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const diamondImage = require('../../assets/images/diamante.webp');
 
 const MENU_ITEMS = [
-  { key: 'performance', label: 'Performance', Icon: Gauge },
-  { key: 'conquistas', label: 'Conquistas', Icon: Award },
-  { key: 'ranking', label: 'Ranking', Icon: Trophy },
-  { key: 'minha-conta', label: 'Minha Conta', Icon: User },
+  { key: 'performance', label: 'Performance', Icon: Gauge, route: '/(app)/performance' },
+  { key: 'conquistas', label: 'Conquistas', Icon: Award, route: '/(app)/conquistas' },
+  { key: 'ranking', label: 'Ranking', Icon: Trophy, route: '/(app)/ranking' },
+  { key: 'minha-conta', label: 'Minha Conta', Icon: User, route: '/(app)/minha-conta' },
   { key: 'sair', label: 'Sair', Icon: LogOut },
 ];
 
 export default function MenuScreen() {
+  const router = useRouter();
   const { data, loading } = useAlunoHeader();
 
   const studentName = useMemo(() => {
@@ -67,15 +69,24 @@ export default function MenuScreen() {
         </View>
 
         <View style={styles.menuContainer}>
-          {MENU_ITEMS.map(({ key, label, Icon }, index) => (
-            <TouchableOpacity key={key} style={[styles.menuItem, index === MENU_ITEMS.length - 1 && styles.menuItemLast]} activeOpacity={0.8}>
+          {MENU_ITEMS.map(({ key, label, Icon, route }, index) => (
+            <TouchableOpacity
+              key={key}
+              style={styles.menuItem}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (route) {
+                  router.push(route as any);
+                }
+              }}
+            >
               <View style={styles.menuItemLeft}>
                 <View style={styles.menuIcon}>
-                  <Icon size={20} color="#7A34FF" strokeWidth={2} />
+                  <Icon size={20} color="#9CA3AF" strokeWidth={2} />
                 </View>
                 <Text style={styles.menuLabel}>{label}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#7A34FF" />
+              <Ionicons name="chevron-forward" size={20} color="#F43F5E" />
             </TouchableOpacity>
           ))}
         </View>
@@ -166,16 +177,6 @@ const styles = StyleSheet.create({
   menuContainer: {
     marginHorizontal: 20,
     marginTop: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E6E2F5',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
   },
   menuItem: {
     flexDirection: 'row',
@@ -183,11 +184,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#EDE9FE',
-  },
-  menuItemLast: {
-    borderBottomWidth: 0,
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -198,7 +194,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F4F1FF',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },

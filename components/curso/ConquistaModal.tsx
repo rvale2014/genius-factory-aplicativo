@@ -192,17 +192,3 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
   },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

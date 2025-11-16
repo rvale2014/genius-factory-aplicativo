@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -66,7 +67,7 @@ export default function CursoDetalhesScreen() {
   // Estados de conquistas
   const [filaConquistas, setFilaConquistas] = useState<NovaConquista[]>([]);
   const [modalConquistaAberto, setModalConquistaAberto] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState<'aula' | 'materiais' | 'duvidas'>('aula');
+  const [abaAtiva, setAbaAtiva] = useState<'materiais' | 'duvidas'>('materiais');
 
   // Computar lista de vídeos
   const videos: VideoComAula[] = useMemo(() => {
@@ -84,6 +85,12 @@ export default function CursoDetalhesScreen() {
       videoAtual.conteudo.id
     );
   const totalVideos = videos.length;
+
+  // 📚 Computar PDFs da aula atual
+  const pdfsAulaAtual = useMemo(() => {
+    if (!videoAtual) return [];
+    return videoAtual.aula.conteudos.filter((c) => c.tipo === 'PDF');
+  }, [videoAtual]);
 
   // Progresso do curso
   const percentualProgresso = useMemo(() => {
@@ -278,6 +285,20 @@ export default function CursoDetalhesScreen() {
     }, 3000);
   }, [videoAtual, statusAulas, toggleConteudo, indiceVideoAtual, totalVideos, avancar]);
 
+  // 📚 Abrir PDF
+  const handleAbrirPdf = useCallback(async (url: string, titulo: string) => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        console.error('Não é possível abrir o PDF:', url);
+      }
+    } catch (error) {
+      console.error('Erro ao abrir PDF:', error);
+    }
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -334,6 +355,42 @@ export default function CursoDetalhesScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
+      {/* Título da aula */}
+      {videoAtual && (
+        <View style={styles.aulaTituloContainer}>
+          <Text style={styles.aulaTitulo} numberOfLines={2}>
+            Aula {aulas.findIndex((a) => a.id === videoAtual.aula.id) + 1} -{' '}
+            {videoAtual.aula.nome}
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.statusToggle,
+              videoConcluido && styles.statusToggleActive,
+            ]}
+            onPress={() =>
+              toggleConteudo(
+                videoAtual.conteudo.id,
+                videoAtual.aula.id,
+                videoConcluido
+              )
+            }
+            accessibilityRole="button"
+            accessibilityLabel={
+              videoConcluido
+                ? 'Marcar aula como não concluída'
+                : 'Marcar aula como concluída'
+            }
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={videoConcluido ? 'checkmark' : 'checkmark-outline'}
+              size={18}
+              color={videoConcluido ? '#16A34A' : '#94A3B8'}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -341,34 +398,30 @@ export default function CursoDetalhesScreen() {
         {/* Player de vídeo */}
         {videoAtual && (
           <View style={styles.playerSection}>
-            {/* Controles de navegação */}
-            <View style={styles.navegacaoControles}>
+            {/* Player com controles de navegação */}
+            <View style={styles.playerContainer}>
               {indiceVideoAtual > 0 && (
                 <TouchableOpacity style={styles.navButton} onPress={voltar}>
-                  <ChevronLeft size={20} color="#FFFFFF" />
-                  <Text style={styles.navButtonText}>Anterior</Text>
+                  <ChevronLeft size={13} color="#FFFFFF" />
                 </TouchableOpacity>
               )}
-              <View style={{ flex: 1 }} />
+              <View style={styles.playerWrapper}>
+                <VideoPlayer
+                  uri={videoAtual.conteudo.url}
+                  onEnded={handleVideoEnded}
+                  onError={(error) => console.error('Erro no player:', error)}
+                />
+              </View>
               {indiceVideoAtual < totalVideos - 1 && (
                 <TouchableOpacity style={styles.navButton} onPress={avancar}>
-                  <Text style={styles.navButtonText}>Próximo</Text>
-                  <ChevronRight size={20} color="#FFFFFF" />
+                  <ChevronRight size={13} color="#FFFFFF" />
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* Player */}
-            <VideoPlayer
-              uri={videoAtual.conteudo.url}
-              onEnded={handleVideoEnded}
-              onError={(error) => console.error('Erro no player:', error)}
-            />
-
-            {/* Info do vídeo */}
+            {/* Tabs */}
             <View style={styles.tabsWrapper}>
               {[
-                { id: 'aula', label: 'Aula' },
                 { id: 'materiais', label: 'Livros Digitais' },
                 { id: 'duvidas', label: 'Dúvidas' },
               ].map((tab) => (
@@ -393,52 +446,37 @@ export default function CursoDetalhesScreen() {
               ))}
             </View>
 
-            {abaAtiva === 'aula' && (
-              <View style={styles.videoInfo}>
-                <View style={styles.videoInfoHeader}>
-                  <Text style={styles.videoTitulo}>
-                    Aula {aulas.findIndex((a) => a.id === videoAtual.aula.id) + 1} -{' '}
-                    {videoAtual.aula.nome}
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.statusToggle,
-                      videoConcluido && styles.statusToggleActive,
-                    ]}
-                    onPress={() =>
-                      toggleConteudo(
-                        videoAtual.conteudo.id,
-                        videoAtual.aula.id,
-                        videoConcluido
-                      )
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      videoConcluido
-                        ? 'Marcar aula como não concluída'
-                        : 'Marcar aula como concluída'
-                    }
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={videoConcluido ? 'checkmark' : 'checkmark-outline'}
-                      size={18}
-                      color={videoConcluido ? '#16A34A' : '#94A3B8'}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
+            {/* Conteúdo da aba Materiais */}
             {abaAtiva === 'materiais' && (
               <View style={styles.tabContent}>
-                <Text style={styles.tabContentTitle}>Livros Digitais</Text>
-                <Text style={styles.tabContentText}>
-                  Em breve você poderá acessar aqui os livros digitais desta aula.
-                </Text>
+                {pdfsAulaAtual.length === 0 ? (
+                  <Text style={styles.tabContentText}>
+                    Não há livros digitais disponíveis para esta aula.
+                  </Text>
+                ) : (
+                  <View style={styles.pdfList}>
+                    {pdfsAulaAtual.map((pdf) => (
+                      <TouchableOpacity
+                        key={pdf.id}
+                        style={styles.pdfItem}
+                        onPress={() => handleAbrirPdf(pdf.url, pdf.titulo)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.pdfIconContainer}>
+                          <Ionicons name="document-text" size={20} color="#7A34FF" />
+                        </View>
+                        <Text style={styles.pdfTitulo} numberOfLines={2}>
+                          {pdf.titulo}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
 
+            {/* Conteúdo da aba Dúvidas */}
             {abaAtiva === 'duvidas' && (
               <View style={styles.tabContent}>
                 <Text style={styles.tabContentTitle}>Dúvidas</Text>
@@ -547,6 +585,19 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 32,
   },
+  aulaTituloContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  aulaTitulo: {
+    flex: 1,
+    fontSize: 16,
+    color: '#0F172A',
+    fontFamily: getInterFont('500'),
+  },
   scrollContent: {
     paddingBottom: 20,
   },
@@ -554,10 +605,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  navegacaoControles: {
+  playerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    gap: 12,
+  },
+  playerWrapper: {
+    flex: 1,
   },
   tabsWrapper: {
     flexDirection: 'row',
@@ -590,19 +644,12 @@ const styles = StyleSheet.create({
     fontFamily: getInterFont('500'),
   },
   navButton: {
-    flexDirection: 'row',
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: '#30C58E',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#7A34FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
-  },
-  navButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: getInterFont('600'),
   },
   videoInfo: {
     marginTop: 16,
@@ -620,7 +667,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 8,
+    gap: 12,
   },
   tabContentTitle: {
     fontSize: 16,
@@ -651,18 +698,32 @@ const styles = StyleSheet.create({
     borderColor: '#A7F3D0',
     backgroundColor: '#ECFDF5',
   },
+  // 📚 Novos estilos para PDFs
+  pdfList: {
+    gap: 8,
+  },
+  pdfItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  pdfIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pdfTitulo: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0F172A',
+    fontFamily: getInterFont('500'),
+  },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

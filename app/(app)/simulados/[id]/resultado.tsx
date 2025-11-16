@@ -361,24 +361,37 @@ function DesempenhoCard({
         <View style={styles.donutWrapper}>
           <Svg width={donutConfig.size} height={donutConfig.size}>
             <G>
-              <Path
-                d={arcPath(
-                  donutConfig.cx,
-                  donutConfig.cy,
-                  donutConfig.r,
-                  donutConfig.endAcertos,
-                  donutConfig.start + 2 * Math.PI - 0.0001
-                )}
-                stroke="#F04438"
-                strokeWidth={16}
-                fill="none"
-              />
-              <Path
-                d={arcPath(donutConfig.cx, donutConfig.cy, donutConfig.r, donutConfig.start, donutConfig.endAcertos)}
-                stroke="#21C997"
-                strokeWidth={16}
-                fill="none"
-              />
+              {perc < 100 && (
+                <Path
+                  d={arcPath(
+                    donutConfig.cx,
+                    donutConfig.cy,
+                    donutConfig.r,
+                    donutConfig.endAcertos,
+                    donutConfig.start + 2 * Math.PI - 0.0001
+                  )}
+                  stroke="#F04438"
+                  strokeWidth={16}
+                  fill="none"
+                />
+              )}
+              {perc === 100 ? (
+                <Circle
+                  cx={donutConfig.cx}
+                  cy={donutConfig.cy}
+                  r={donutConfig.r}
+                  stroke="#21C997"
+                  strokeWidth={16}
+                  fill="none"
+                />
+              ) : (
+                <Path
+                  d={arcPath(donutConfig.cx, donutConfig.cy, donutConfig.r, donutConfig.start, donutConfig.endAcertos)}
+                  stroke="#21C997"
+                  strokeWidth={16}
+                  fill="none"
+                />
+              )}
             </G>
           </Svg>
           <View style={styles.donutCenter}>
@@ -387,7 +400,7 @@ function DesempenhoCard({
           </View>
           <View style={styles.legendRow}>
             <LegendDot color="#21C997" label="Acertos" />
-            <LegendDot color="#F04438" label="Erros" />
+            {perc < 100 && <LegendDot color="#F04438" label="Erros" />}
           </View>
         </View>
       ) : (

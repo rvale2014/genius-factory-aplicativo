@@ -30,6 +30,20 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="performance"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="conquistas"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
         name="cursos"
         options={{
           title: 'Cursos',
@@ -63,6 +77,20 @@ export default function AppLayout() {
           tabBarIcon: ({ color, size }) => (
             <Menu size={size} color={color} strokeWidth={2} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="ranking"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="minha-conta"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen

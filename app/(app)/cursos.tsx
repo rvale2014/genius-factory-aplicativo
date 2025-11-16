@@ -195,7 +195,7 @@ export default function CursosScreen() {
             </Text>
 
             <View style={styles.goButton}>
-              <Ionicons name="chevron-forward" size={18} color="#FFF" />
+              <Ionicons name="chevron-forward" size={13} color="#FFF" />
             </View>
           </View>
         </View>
@@ -324,21 +324,19 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
     gap: 12,
-    elevation: 3,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 4,
-    borderWidth: 1, borderColor: '#EEE',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   cardImage: {
     width: 96,
     height: 72,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: '#F7F7F7',
+    margin: 4,
   },
   cardBody: {
     flex: 1,
@@ -378,8 +376,8 @@ const styles = StyleSheet.create({
     fontSize: 11, color: '#666', flex: 1, paddingRight: 8,
   },
   goButton: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: '#14b8a6',
+    width: 22, height: 22, borderRadius: 4,
+    backgroundColor: '#30C58E',
     alignItems: 'center', justifyContent: 'center',
   },
 
