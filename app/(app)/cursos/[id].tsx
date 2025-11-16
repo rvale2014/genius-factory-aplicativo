@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConquistaModal } from '../../../components/curso/ConquistaModal';
+import { ForumDuvidasAula } from '../../../components/curso/ForumDuvidasAula';
 import { ModalAulas } from '../../../components/curso/ModalAulas';
 import { VideoPlayer } from '../../../components/curso/VideoPlayer';
 import {
@@ -477,13 +478,9 @@ export default function CursoDetalhesScreen() {
             )}
 
             {/* Conteúdo da aba Dúvidas */}
-            {abaAtiva === 'duvidas' && (
-              <View style={styles.tabContent}>
-                <Text style={styles.tabContentTitle}>Dúvidas</Text>
-                <Text style={styles.tabContentText}>
-                  Tire suas dúvidas com nossos professores direto pelo fórum da aula
-                  (disponível em breve).
-                </Text>
+            {abaAtiva === 'duvidas' && videoAtual && (
+              <View style={styles.tabContentDuvidas}>
+                <ForumDuvidasAula aulaId={videoAtual.aula.id} />
               </View>
             )}
           </View>
@@ -668,6 +665,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 12,
+  },
+  tabContentDuvidas: {
+    marginTop: 16,
   },
   tabContentTitle: {
     fontSize: 16,
