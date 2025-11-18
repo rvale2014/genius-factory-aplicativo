@@ -9,8 +9,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import RenderHTML from 'react-native-render-html';
 import { api } from '../../src/lib/api';
 
 type DuvidaItem = {
@@ -62,6 +64,7 @@ function getInterFont(fontWeight?: string | number): string {
 }
 
 export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
+  const { width } = useWindowDimensions();
   const [itens, setItens] = useState<DuvidaItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -88,12 +91,12 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
     try {
       setLoading(true);
       setErro(null);
-      const response = await api.get(
-        `/mobile/v1/forum/aulas/${encodeURIComponent(aulaId)}?aulaId=${encodeURIComponent(
-          aulaId
-        )}&page=${page}&pageSize=${pageSize}`
-      );
+
+      const url = `/mobile/v1/forum/aulas/${encodeURIComponent(aulaId)}?page=${page}&pageSize=${pageSize}`;
+
+      const response = await api.get(url);
       const data = response.data;
+
       setItens(data.items || []);
       setTotal(data.total || 0);
     } catch (e: any) {
@@ -216,7 +219,7 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
           placeholder="Escreva sua dúvida..."
           placeholderTextColor="#9CA3AF"
           multiline
-          numberOfLines={4}
+          numberOfLines={3}
           style={styles.textInput}
           textAlignVertical="top"
         />
@@ -302,7 +305,20 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
                 </View>
 
                 {/* Corpo da dúvida */}
-                <Text style={styles.duvidaCorpo}>{d.corpo}</Text>
+                <View style={styles.duvidaCorpoContainer}>
+                  <RenderHTML
+                    contentWidth={width - 80}
+                    source={{ html: d.corpo || '<p></p>' }}
+                    baseStyle={styles.duvidaCorpo}
+                    tagsStyles={{
+                      p: styles.htmlParagraphDuvida,
+                      strong: styles.htmlStrong,
+                      em: styles.htmlEm,
+                      ul: styles.htmlList,
+                      li: styles.htmlListItemDuvida,
+                    }}
+                  />
+                </View>
 
                 {/* Info e ação */}
                 <View style={styles.duvidaFooter}>
@@ -366,7 +382,20 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
                             </Text>
                           </View>
 
-                          <Text style={styles.respostaCorpo}>{r.corpo}</Text>
+                          <View style={styles.respostaCorpoContainer}>
+                            <RenderHTML
+                              contentWidth={width - 80}
+                              source={{ html: r.corpo || '<p></p>' }}
+                              baseStyle={styles.respostaCorpo}
+                              tagsStyles={{
+                                p: styles.htmlParagraph,
+                                strong: styles.htmlStrong,
+                                em: styles.htmlEm,
+                                ul: styles.htmlList,
+                                li: styles.htmlListItem,
+                              }}
+                            />
+                          </View>
 
                           {isOficial && (
                             <View style={styles.oficialBadge}>
@@ -442,30 +471,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    minHeight: 80,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 13,
+    minHeight: 70,
     fontFamily: getInterFont('400'),
     color: '#111827',
   },
   formActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 12,
+    marginTop: 8,
   },
   submitButton: {
     backgroundColor: '#7A34FF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   submitButtonDisabled: {
     backgroundColor: '#9CA3AF',
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     fontFamily: getInterFont('600'),
   },
@@ -543,7 +572,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   alunoNome: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#111827',
     fontFamily: getInterFont('600'),
@@ -563,12 +592,18 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontFamily: getInterFont('400'),
   },
-  duvidaCorpo: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-    fontFamily: getInterFont('400'),
+  duvidaCorpoContainer: {
     marginBottom: 8,
+  },
+  duvidaCorpo: {
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 17,
+    fontFamily: getInterFont('400'),
+    textAlign: 'justify',
+  },
+  respostaCorpoContainer: {
+    marginBottom: 0,
   },
   duvidaFooter: {
     flexDirection: 'row',
@@ -652,6 +687,48 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 18,
     fontFamily: getInterFont('400'),
+    textAlign: 'justify',
+  },
+  htmlParagraph: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    fontFamily: getInterFont('400'),
+    marginVertical: 4,
+    textAlign: 'justify',
+  },
+  htmlParagraphDuvida: {
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 17,
+    fontFamily: getInterFont('400'),
+    marginVertical: 4,
+    textAlign: 'justify',
+  },
+  htmlStrong: {
+    fontWeight: '600',
+    fontFamily: getInterFont('600'),
+  },
+  htmlEm: {
+    fontStyle: 'italic',
+  },
+  htmlList: {
+    marginVertical: 8,
+    paddingLeft: 20,
+  },
+  htmlListItem: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    fontFamily: getInterFont('400'),
+    marginVertical: 2,
+  },
+  htmlListItemDuvida: {
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 17,
+    fontFamily: getInterFont('400'),
+    marginVertical: 2,
   },
   oficialBadge: {
     flexDirection: 'row',

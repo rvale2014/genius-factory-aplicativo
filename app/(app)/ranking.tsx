@@ -1,8 +1,8 @@
 // app/(app)/ranking.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -101,25 +101,46 @@ export default function RankingScreen() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [tipoSelecionado, setTipoSelecionado] = useState<'geral' | 'semanal'>('geral');
+  const initialLoadedRef = useRef(false);
 
-  // Carregar dados
-  useEffect(() => {
-    async function carregarDados() {
-      try {
-        setLoading(true);
-        setErro(null);
-        const dados = await obterRanking({ tipo: tipoSelecionado, limit: 100 });
-        setData(dados);
-      } catch (e: any) {
-        console.error('Erro ao carregar ranking:', e);
-        setErro('Não foi possível carregar o ranking. Tente novamente.');
-      } finally {
-        setLoading(false);
-      }
+  const carregarDados = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErro(null);
+      const dados = await obterRanking({ tipo: tipoSelecionado, limit: 100 });
+      setData(dados);
+    } catch (e: any) {
+      console.error('Erro ao carregar ranking:', e);
+      setErro('Não foi possível carregar o ranking. Tente novamente.');
+    } finally {
+      setLoading(false);
+      initialLoadedRef.current = true;
     }
-
-    carregarDados();
   }, [tipoSelecionado]);
+
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      const dados = await obterRanking({ tipo: tipoSelecionado, limit: 100 });
+      setData(dados);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, [tipoSelecionado]);
+
+  // Carregar dados quando tipo mudar
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   // Renderizar item do ranking
   const renderItem = ({ item, index }: { item: RankingItem; index: number }) => {

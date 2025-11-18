@@ -1,8 +1,8 @@
 // app/(app)/performance.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -33,35 +33,60 @@ export default function PerformanceScreen() {
   const [data, setData] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const initialLoadedRef = useRef(false);
   
   // Filtros
   const [materiaSelecionada, setMateriaSelecionada] = useState<string>('todas');
   const [periodoSelecionado, setPeriodoSelecionado] = useState<'7' | '14' | '30' | 'all'>('all');
 
-  // Carregar dados
-  useEffect(() => {
-    async function carregarDados() {
-      try {
-        setLoading(true);
-        setErro(null);
-        
-        const params: any = { dias: periodoSelecionado };
-        if (materiaSelecionada !== 'todas') {
-          params.materiaId = materiaSelecionada;
-        }
-        
-        const dados = await obterPerformance(params);
-        setData(dados);
-      } catch (e: any) {
-        console.error('Erro ao carregar performance:', e);
-        setErro('Não foi possível carregar os dados de performance. Tente novamente.');
-      } finally {
-        setLoading(false);
+  const carregarDados = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErro(null);
+      
+      const params: any = { dias: periodoSelecionado };
+      if (materiaSelecionada !== 'todas') {
+        params.materiaId = materiaSelecionada;
       }
+      
+      const dados = await obterPerformance(params);
+      setData(dados);
+    } catch (e: any) {
+      console.error('Erro ao carregar performance:', e);
+      setErro('Não foi possível carregar os dados de performance. Tente novamente.');
+    } finally {
+      setLoading(false);
+      initialLoadedRef.current = true;
     }
-    
-    carregarDados();
   }, [materiaSelecionada, periodoSelecionado]);
+
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      const params: any = { dias: periodoSelecionado };
+      if (materiaSelecionada !== 'todas') {
+        params.materiaId = materiaSelecionada;
+      }
+      const dados = await obterPerformance(params);
+      setData(dados);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, [materiaSelecionada, periodoSelecionado]);
+
+  // Carregar dados quando filtros mudarem
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   if (loading) {
     return (

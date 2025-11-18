@@ -1,8 +1,8 @@
 // app/(app)/cursos/index.tsx
 import { AlunoHeaderSummary } from '@/components/AlunoHeaderSummary';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -78,8 +78,27 @@ export default function CursosScreen() {
     return () => { active = false; };
   }, [ano]);
 
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      setErro(null);
+
+      const res = await listarCursos({
+        ano,
+        page: 1,
+        perPage: PER_PAGE,
+      } as ListarCursosParams);
+
+      setItens(res.items);
+      setPage(1);
+      setTotalItems(res.total);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, [ano]);
+
   // pull to refresh
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
       setErro(null);
@@ -98,7 +117,16 @@ export default function CursosScreen() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [ano]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   // infinite scroll
   const loadMore = async () => {

@@ -7,6 +7,17 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, use
 import RenderHTML from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+// Importar calculadores de feedback
+import {
+  calcularFeedbackBlocoRapido,
+  calcularFeedbackCompletar,
+  calcularFeedbackCompletarTopo,
+  calcularFeedbackCruzadinha,
+  calcularFeedbackLigarColunas,
+  calcularFeedbackMathTable,
+  extrairCorretasSelecaoMultipla,
+} from "@/src/lib/feedbackCalculators";
+
 // Importar componentes de questões
 import EstatisticasQuestao from "../qbank/EstatisticasQuestao";
 import BlocoRapidoAluno from "../questoes/BlocoRapidoAluno";
@@ -21,6 +32,42 @@ import LigarColunasAluno from "../questoes/LigarColunasAluno";
 import QuestaoTabela from "../questoes/QuestaoTabela";
 import SelecaoMultiplaAluno, { SelecaoMultiplaAlternativa } from "../questoes/SelecaoMultiplaAluno";
 import { normalizeAlternativas, parseConteudo } from "../questoes/utils";
+
+// ========== HELPERS ==========
+
+/**
+ * Helper para fazer parse de respostas que podem vir como string JSON.
+ * Algumas respostas do backend vêm como string JSON serializada.
+ */
+function parseRespostaAluno<T = any>(resposta: any, defaultValue: T): T {
+  if (!resposta) return defaultValue;
+
+  // Se já é objeto, retorna direto
+  if (typeof resposta === "object" && !Array.isArray(resposta)) {
+    return resposta as T;
+  }
+
+  // Se é array, retorna direto
+  if (Array.isArray(resposta)) {
+    return resposta as T;
+  }
+
+  // Se é string JSON, faz parse (objeto ou array)
+  if (typeof resposta === "string") {
+    const trimmed = resposta.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        return JSON.parse(resposta) as T;
+      } catch (e) {
+        return defaultValue;
+      }
+    }
+  }
+
+  return defaultValue;
+}
+
+// ========== COMPONENTE PRINCIPAL ==========
 
 type Props = {
   open: boolean;
@@ -97,7 +144,6 @@ export default function VisualizarQuestaoResultadoSheet({
           setAbaAtiva("comentarios");
         }
       } catch (e) {
-        console.error(e);
         if (active) setDados(null);
       } finally {
         if (active) setLoading(false);
@@ -495,14 +541,27 @@ function ConteudoObjetiva({ dados }: { dados: QuestaoDetalhada }) {
 }
 
 function ConteudoDissertativa({ dados }: { dados: QuestaoDetalhada }) {
+  const isObjetivaCurta = dados.tipo === "objetiva_curta";
+  
   return (
     <View style={styles.dissertativaContainer}>
       <View style={styles.dissertativaSection}>
         <Text style={styles.sectionTitle}>Sua resposta:</Text>
-        <View style={styles.respostaBox}>
+        <View style={[
+          styles.respostaBox,
+          isObjetivaCurta && styles.respostaBoxWithIcon,
+          isObjetivaCurta && dados.acertou === true && styles.respostaBoxSuccess,
+          isObjetivaCurta && dados.acertou === false && styles.respostaBoxError,
+        ]}>
           <Text style={styles.respostaTexto}>
             {dados.respostaAluno || "(sem resposta)"}
           </Text>
+          {isObjetivaCurta && dados.acertou === true && (
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+          )}
+          {isObjetivaCurta && dados.acertou === false && (
+            <Ionicons name="close-circle" size={20} color="#EF4444" />
+          )}
         </View>
       </View>
 
@@ -546,8 +605,14 @@ function ConteudoDissertativa({ dados }: { dados: QuestaoDetalhada }) {
 }
 
 function ConteudoBlocoRapido({ dados }: { dados: QuestaoDetalhada }) {
-  const respostas = Array.isArray(dados.respostaAluno) ? dados.respostaAluno : [];
-  const feedbacks = Array.isArray(dados.feedbacks) ? dados.feedbacks : [];
+  // ✅ Parse da resposta do aluno (pode vir como string JSON ou array)
+  const respostas = parseRespostaAluno<string[]>(dados.respostaAluno, []);
+  
+  // ✅ CALCULAR FEEDBACKS
+  const feedbacks = useMemo(() => {
+    if (!Array.isArray(dados.blocoRapido)) return [];
+    return calcularFeedbackBlocoRapido(dados.blocoRapido, respostas);
+  }, [dados.blocoRapido, respostas]);
 
   return (
     <BlocoRapidoAluno
@@ -561,12 +626,19 @@ function ConteudoBlocoRapido({ dados }: { dados: QuestaoDetalhada }) {
 }
 
 function ConteudoLigarColunas({ dados }: { dados: QuestaoDetalhada }) {
-  const respostas =
-    dados.respostaAluno && typeof dados.respostaAluno === "object"
-      ? dados.respostaAluno
-      : {};
-  const feedbacks =
-    dados.feedbacks && typeof dados.feedbacks === "object" ? dados.feedbacks : {};
+  // ✅ Parse da resposta do aluno
+  const respostas = parseRespostaAluno<{ [key: string]: string }>(
+    dados.respostaAluno,
+    {}
+  );
+
+  // ✅ CALCULAR FEEDBACKS
+  const { feedbacks, corretas } = useMemo(() => {
+    if (!Array.isArray(dados.ligarColunas)) {
+      return { feedbacks: {}, corretas: {} };
+    }
+    return calcularFeedbackLigarColunas(dados.ligarColunas, respostas);
+  }, [dados.ligarColunas, respostas]);
 
   return (
     <LigarColunasAluno
@@ -574,8 +646,8 @@ function ConteudoLigarColunas({ dados }: { dados: QuestaoDetalhada }) {
       ligarColunas={dados.ligarColunas!}
       respostasAluno={respostas}
       setRespostasAluno={() => {}}
-      feedbacks={feedbacks.feedbacks}
-      corretas={feedbacks.corretas}
+      feedbacks={feedbacks}
+      corretas={corretas}
     />
   );
 }
@@ -606,16 +678,16 @@ function ConteudoSelecaoMultipla({ dados }: { dados: QuestaoDetalhada }) {
       (alt: SelecaoMultiplaAlternativa | null): alt is SelecaoMultiplaAlternativa => !!alt
     );
 
-  const respostas =
-    dados.respostaAluno &&
-    typeof dados.respostaAluno === "object" &&
-    Array.isArray(dados.respostaAluno.selecionadas)
-      ? dados.respostaAluno
-      : { selecionadas: [] };
+  // ✅ Parse da resposta do aluno
+  const respostas = parseRespostaAluno<{ selecionadas: string[] }>(
+    dados.respostaAluno,
+    { selecionadas: [] }
+  );
 
-  const corretas = Array.isArray(dados.feedbacks)
-    ? dados.feedbacks.map(String)
-    : [];
+  // ✅ EXTRAIR ALTERNATIVAS CORRETAS (passando questaoId)
+  const corretas = useMemo(() => {
+    return extrairCorretasSelecaoMultipla(conteudo, dados.id);
+  }, [conteudo, dados.id]);
 
   return (
     <SelecaoMultiplaAluno
@@ -637,6 +709,7 @@ function ConteudoCompletar({ dados }: { dados: QuestaoDetalhada }) {
     textoBase: string;
     opcoes: [string, string];
     explicacao: string | null;
+    correta?: string | null;
   };
 
   const frases = frasesBrutas
@@ -662,14 +735,20 @@ function ConteudoCompletar({ dados }: { dados: QuestaoDetalhada }) {
         textoBase,
         opcoes: [primeira, segunda] as [string, string],
         explicacao: typeof frase?.explicacao === "string" ? frase.explicacao : null,
+        correta: typeof frase?.correta === "string" ? frase.correta : null,
       };
     })
     .filter(
       (item: FraseCompletar | null): item is FraseCompletar => !!item
     );
 
-  const respostas = Array.isArray(dados.respostaAluno) ? dados.respostaAluno : [];
-  const feedbacks = Array.isArray(dados.feedbacks) ? dados.feedbacks : [];
+  // ✅ Parse da resposta do aluno (pode vir como string JSON ou array)
+  const respostas = parseRespostaAluno<string[]>(dados.respostaAluno, []);
+
+  // ✅ CALCULAR FEEDBACKS
+  const feedbacks = useMemo(() => {
+    return calcularFeedbackCompletar(frases, respostas);
+  }, [frases, respostas]);
 
   return (
     <CompletarAluno
@@ -741,15 +820,16 @@ function ConteudoCompletarTopo({ dados }: { dados: QuestaoDetalhada }) {
     config: conteudo?.config,
   };
 
-  const respostas =
-    dados.respostaAluno &&
-    typeof dados.respostaAluno === "object" &&
-    Array.isArray(dados.respostaAluno.respostasAluno)
-      ? dados.respostaAluno
-      : { respostasAluno: [], ordemTopo: [] };
+  // ✅ Parse da resposta do aluno
+  const respostas = parseRespostaAluno<{ respostasAluno: any[]; ordemTopo: string[] }>(
+    dados.respostaAluno,
+    { respostasAluno: [], ordemTopo: [] }
+  );
 
-  const feedbacks =
-    dados.feedbacks && typeof dados.feedbacks === "object" ? dados.feedbacks : {};
+  // ✅ CALCULAR FEEDBACKS
+  const feedbacks = useMemo(() => {
+    return calcularFeedbackCompletarTopo(conteudo, respostas);
+  }, [conteudo, respostas]);
 
   return (
     <CompletarTopoAluno
@@ -764,12 +844,27 @@ function ConteudoCompletarTopo({ dados }: { dados: QuestaoDetalhada }) {
 
 function ConteudoTabela({ dados }: { dados: QuestaoDetalhada }) {
   const conteudo = parseConteudo(dados.conteudo);
-  const respostas =
-    dados.respostaAluno && typeof dados.respostaAluno === "object"
-      ? dados.respostaAluno
-      : null;
-  const feedbacks =
-    dados.feedbacks && typeof dados.feedbacks === "object" ? dados.feedbacks : null;
+  
+  // ✅ Parse da resposta do aluno
+  const respostas = parseRespostaAluno<any>(dados.respostaAluno, null);
+
+  // ✅ CALCULAR FEEDBACKS
+  const feedbacks = useMemo(() => {
+    if (!conteudo || !respostas) return null;
+
+    // Detectar subtipo
+    const subtipo = conteudo?.subtipo;
+    
+    if (subtipo === "cruzadinha" || Array.isArray(conteudo?.mascaraAtiva)) {
+      return calcularFeedbackCruzadinha(conteudo, respostas);
+    }
+    
+    if (subtipo === "math_table" || Array.isArray(conteudo?.tabela)) {
+      return calcularFeedbackMathTable(conteudo, respostas);
+    }
+
+    return null;
+  }, [conteudo, respostas]);
 
   return (
     <QuestaoTabela
@@ -786,12 +881,11 @@ function ConteudoColorirQuestao({ dados }: { dados: QuestaoDetalhada }) {
   const conteudo = parseConteudo(dados.conteudo) as ConteudoColorirTipo | null;
   if (!conteudo) return null;
 
-  const respostas =
-    dados.respostaAluno &&
-    typeof dados.respostaAluno === "object" &&
-    Array.isArray(dados.respostaAluno.partesMarcadas)
-      ? dados.respostaAluno
-      : { partesMarcadas: [] };
+  // ✅ Parse da resposta do aluno (pode vir como string JSON)
+  const respostas = parseRespostaAluno<{ partesMarcadas: string[] }>(
+    dados.respostaAluno,
+    { partesMarcadas: [] }
+  );
 
   return (
     <ColorirFiguraAluno
@@ -1017,11 +1111,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
   },
+  respostaBoxWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  respostaBoxSuccess: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#10B981",
+  },
+  respostaBoxError: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#EF4444",
+  },
   respostaTexto: {
     fontSize: 14,
     lineHeight: 20,
     color: "#111827",
     fontFamily: "Inter",
+    flex: 1,
   },
   feedbackDissertativa: {
     backgroundColor: "#EFF6FF",

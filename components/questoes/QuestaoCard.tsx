@@ -6,6 +6,7 @@ import {
   corrigirDissertativa,
   corrigirLigarColunas,
   corrigirMultiplaEscolhaOuCertaErrada,
+  corrigirObjetivaCurta,
   corrigirSelecaoMultipla,
   corrigirTabela,
 } from "@/src/services/respostasService";
@@ -77,7 +78,7 @@ export function QuestaoCard({ questao }: Props) {
   );
 
   const isObjetiva = questao.tipo === "multipla_escolha" || questao.tipo === "certa_errada";
-  const isDissertativa = questao.tipo === "dissertativa";
+  const isDissertativa = questao.tipo === "dissertativa" || questao.tipo === "objetiva_curta";
   const isBlocoRapido = questao.tipo === "bloco_rapido";
   const isLigarColunas = questao.tipo === "ligar_colunas";
   const isSelecaoMultipla = questao.tipo === "selecao_multipla";
@@ -527,14 +528,22 @@ export function QuestaoCard({ questao }: Props) {
           corretaLetra,
         });
       } else if (isDissertativa) {
-        const result = await corrigirDissertativa(questao.id, respostaTexto);
-        setFeedback({ 
-          status: "ok", 
-          acertou: !!result?.acertou,
-          nota: result?.nota,
-          justificativa: result?.justificativa,
-          sugestao: result?.sugestao,
-        });
+        if (questao.tipo === "objetiva_curta") {
+          const result = await corrigirObjetivaCurta(questao.id, respostaTexto);
+          setFeedback({ 
+            status: "ok", 
+            acertou: !!result?.acertou,
+          });
+        } else {
+          const result = await corrigirDissertativa(questao.id, respostaTexto);
+          setFeedback({ 
+            status: "ok", 
+            acertou: !!result?.acertou,
+            nota: result?.nota,
+            justificativa: result?.justificativa,
+            sugestao: result?.sugestao,
+          });
+        }
       } else if (isBlocoRapido) {
         const result = await corrigirBlocoRapido(questao.id, respostasBlocoRapido);
         setFeedback({ status: "ok", acertou: !!result?.acertou });
@@ -583,8 +592,9 @@ export function QuestaoCard({ questao }: Props) {
       return feedback.msg;
     }
     
-    if (isDissertativa && feedback.status === "ok") {
-      return null; // Para dissertativa, mostramos um card customizado
+    // Para dissertativa, mostramos um card customizado (sem feedbackMessage)
+    if (questao.tipo === "dissertativa" && feedback.status === "ok") {
+      return null;
     }
     
     if (feedback.acertou) {
@@ -740,24 +750,35 @@ return (
           </View>
         ) : null}
 
-        {/* Campo de texto para dissertativa */}
+        {/* Campo de texto para dissertativa e objetiva curta */}
         {isDissertativa && (
           <View style={styles.dissertativaContainer}>
-            <Text style={styles.dissertativaLabel}>Escreva sua resposta:</Text>
+            <Text style={styles.dissertativaLabel}>
+              {questao.tipo === "objetiva_curta"
+                ? "Digite sua resposta curta:"
+                : "Escreva sua resposta:"}
+            </Text>
             <TextInput
               value={respostaTexto}
               onChangeText={setRespostaTexto}
-              multiline
-              numberOfLines={8}
+              multiline={questao.tipo === "dissertativa"}
+              numberOfLines={questao.tipo === "dissertativa" ? 8 : 3}
               textAlignVertical="top"
-              placeholder="Digite sua resposta aqui..."
+              placeholder={
+                questao.tipo === "dissertativa"
+                  ? "Digite sua resposta aqui..."
+                  : "Resposta"
+              }
               editable={!respondido}
               style={[
                 styles.dissertativaInput,
+                questao.tipo === "objetiva_curta" && styles.objetivaCurtaInput,
                 respondido && styles.dissertativaInputDisabled,
               ]}
             />
-            <Text style={styles.charCounter}>{respostaTexto.length} caracteres</Text>
+            {questao.tipo === "dissertativa" ? (
+              <Text style={styles.charCounter}>{respostaTexto.length} caracteres</Text>
+            ) : null}
           </View>
         )}
 
@@ -853,8 +874,8 @@ return (
               </Text>
             ) : null}
 
-            {/* Feedback dissertativa (card customizado) */}
-            {isDissertativa && feedback?.status === "ok" && (
+            {/* Feedback dissertativa (card customizado) - apenas para dissertativa, não para objetiva_curta */}
+            {questao.tipo === "dissertativa" && feedback?.status === "ok" && (
               <View style={styles.dissertativaFeedback}>
                 <View style={styles.notaContainer}>
                   <Text style={styles.notaLabel}>Nota:</Text>
@@ -1110,6 +1131,9 @@ const styles = StyleSheet.create({
     color: "#111827",
     minHeight: 120,
     backgroundColor: "#FFFFFF",
+  },
+  objetivaCurtaInput: {
+    minHeight: 60,
   },
   dissertativaInputDisabled: {
     backgroundColor: "#F9FAFB",

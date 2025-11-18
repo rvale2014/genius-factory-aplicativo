@@ -33,7 +33,7 @@ import type {
   StatusAula,
 } from '../../../types/curso';
 
-const { width } = Dimensions.get('window');
+const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface VideoComAula {
   aula: Aula;
@@ -52,6 +52,9 @@ function getInterFont(fontWeight?: string | number): string {
 export default function CursoDetalhesScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Padding dinâmico para o BottomSheet (20% + margem)
+  const BOTTOM_SHEET_PADDING = SCREEN_HEIGHT * 0.20 + 60;
 
   // Estados principais
   const [loading, setLoading] = useState(true);
@@ -394,7 +397,10 @@ export default function CursoDetalhesScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: BOTTOM_SHEET_PADDING },
+        ]}
       >
         {/* Player de vídeo */}
         {videoAtual && (
@@ -596,7 +602,7 @@ const styles = StyleSheet.create({
     fontFamily: getInterFont('500'),
   },
   scrollContent: {
-    paddingBottom: 20,
+    // paddingBottom removido daqui, agora é dinâmico inline
   },
   playerSection: {
     paddingHorizontal: 20,

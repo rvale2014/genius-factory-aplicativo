@@ -1,8 +1,8 @@
 // app/(app)/simulados/index.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Clock, FileText } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -41,12 +41,9 @@ export default function MeusSimuladosScreen() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [isEmpty, setIsEmpty] = useState(false);
+  const initialLoadedRef = useRef(false);
 
-  useEffect(() => {
-    carregarSimulados();
-  }, []);
-
-  async function carregarSimulados() {
+  const carregarSimulados = useCallback(async () => {
     try {
       setLoading(true);
       setErro(null);
@@ -58,8 +55,33 @@ export default function MeusSimuladosScreen() {
       setErro('Não foi possível carregar os simulados. Tente novamente.');
     } finally {
       setLoading(false);
+      initialLoadedRef.current = true;
     }
-  }
+  }, []);
+
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      const dados = await obterSimulados();
+      setSimulados(dados.simulados);
+      setIsEmpty(dados.isEmpty);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarSimulados();
+  }, [carregarSimulados]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   function handleSimuladoPress(simulado: SimuladoItem) {
     if (simulado.status === 'CONCLUIDO') {

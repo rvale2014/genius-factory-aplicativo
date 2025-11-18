@@ -55,15 +55,24 @@ export default function SelecaoMultiplaAluno({
         let borderColor = "#E5E7EB";
         let backgroundColor = "#FFFFFF";
 
+        // ✅ LÓGICA CORRIGIDA: Priorizar corretas marcadas
         if (isFeedbackActive) {
-          if (isCorreta) {
-            borderColor = "#34D399";
+          if (isCorreta && checked) {
+            // Alternativa correta E marcada = Verde forte
+            borderColor = "#10B981";
             backgroundColor = "#ECFDF5";
-          } else if (checked) {
+          } else if (isCorreta && !checked) {
+            // Alternativa correta mas NÃO marcada = Verde claro (indicação)
+            borderColor = "#6EE7B7";
+            backgroundColor = "#F0FDF4";
+          } else if (!isCorreta && checked) {
+            // Alternativa incorreta mas marcada = Vermelho
             borderColor = "#F87171";
             backgroundColor = "#FEF2F2";
           }
+          // Alternativa incorreta E não marcada = Cinza (sem destaque)
         } else if (checked) {
+          // Modo resolução: roxo quando marcada
           borderColor = "#C4B5FD";
           backgroundColor = "#F5F3FF";
         }
@@ -74,22 +83,43 @@ export default function SelecaoMultiplaAluno({
 
         if (isFeedbackActive) {
           if (isCorreta && checked) {
+            // Correta e marcada = checkmark verde cheio
             bulletVariant = styles.bulletCorrect;
+            iconColor = "#FFFFFF";
+            showCheckIcon = true;
           } else if (isCorreta && !checked) {
+            // Correta mas não marcada = checkmark verde outline (dica)
             bulletVariant = styles.bulletCorrectMuted;
             showCheckIcon = true;
             iconColor = "#059669";
           } else if (!isCorreta && checked) {
+            // Incorreta e marcada = X vermelho
             bulletVariant = styles.bulletIncorrect;
+            showCheckIcon = true;
+            iconColor = "#FFFFFF";
           } else {
+            // Incorreta e não marcada = sem ícone
             bulletVariant = styles.bulletDefault;
             showCheckIcon = false;
           }
         } else if (checked) {
           bulletVariant = styles.bulletSelected;
+          showCheckIcon = true;
         } else {
           bulletVariant = styles.bulletDefault;
           showCheckIcon = false;
+        }
+
+        // Ícone dentro do bullet (calculado inline sem useMemo)
+        let bulletIcon = null;
+        if (showCheckIcon) {
+          if (isFeedbackActive && !isCorreta && checked) {
+            // Mostra X para incorretas marcadas
+            bulletIcon = <Ionicons name="close" size={16} color={iconColor} />;
+          } else {
+            // Mostra checkmark para o resto
+            bulletIcon = <Ionicons name="checkmark" size={16} color={iconColor} />;
+          }
         }
 
         return (
@@ -107,7 +137,7 @@ export default function SelecaoMultiplaAluno({
             <Text style={styles.index}>{index + 1}.</Text>
 
             <View style={[styles.bullet, bulletVariant]}>
-              {showCheckIcon ? <Ionicons name="checkmark" size={16} color={iconColor} /> : null}
+              {bulletIcon}
             </View>
 
             {alt.imagemUrl ? (
@@ -120,9 +150,13 @@ export default function SelecaoMultiplaAluno({
 
             <Text style={styles.texto}>{alt.texto}</Text>
 
-            {isFeedbackActive && isCorreta ? (
+            {/* Ícone grande de feedback no final */}
+            {isFeedbackActive && isCorreta && checked && (
               <Ionicons name="checkmark-circle" size={20} color="#059669" />
-            ) : null}
+            )}
+            {isFeedbackActive && !isCorreta && checked && (
+              <Ionicons name="close-circle" size={20} color="#DC2626" />
+            )}
           </TouchableOpacity>
         );
       })}
@@ -177,8 +211,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECFDF5",
   },
   bulletIncorrect: {
-    borderColor: "#F87171",
-    backgroundColor: "#F87171",
+    borderColor: "#DC2626",
+    backgroundColor: "#EF4444",
   },
   imagem: {
     width: 64,
@@ -193,4 +227,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-

@@ -26,7 +26,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import type { LucideIcon } from "lucide-react-native";
 import {
   BookOpen,
@@ -532,12 +532,43 @@ function QuestoesList({ filtros, onTotalChange }: { filtros: QuestoesFiltros; on
     }
   }, [filtros, onTotalChange]);
 
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      const [list, totalCount] = await Promise.all([
+        listarQuestoes<QuestaoListItem>(filtros, 1, pageSize),
+        contarQuestoes(filtros),
+      ]);
+
+      setTotal(totalCount);
+      onTotalChange?.(totalCount);
+      setItems(list.items);
+      setPage(1);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, [filtros, onTotalChange, pageSize]);
+
   useEffect(() => {
     // sempre que filtros mudarem, resetar paginação
     setPage(1);
     load(1, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filtros)]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  const initialLoadedRef = useRef(false);
+  useEffect(() => {
+    initialLoadedRef.current = true;
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   const canLoadMore = items.length < total;
 

@@ -47,7 +47,7 @@ export function ModalAulas({
   percentualProgresso,
 }: ModalAulasProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['30%'], []);
+  const snapPoints = useMemo(() => ['20%'], []);
   const [expandedAulas, setExpandedAulas] = React.useState<Set<string>>(
     new Set([aulaSelecionadaId || ''])
   );

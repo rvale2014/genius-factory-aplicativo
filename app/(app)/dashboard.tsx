@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Award, BookOpen, Gauge, TrendingDown, TrendingUp, Trophy } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -91,13 +92,9 @@ function ImageWithFallback({
         setFinalUrl(response.data.url);
         setImageError(false);
       } else {
-        console.warn('Resposta do endpoint não contém URL:', response.data);
         setImageError(true);
       }
     } catch (error: any) {
-                  console.error('Erro ao renovar token da imagem:', error);
-                  console.error('Status:', error.response?.status);
-                  console.error('Detalhes do erro:', error.response?.data || error.message);
       setImageError(true);
     } finally {
       setIsRenewing(false);
@@ -128,14 +125,8 @@ function ImageWithFallback({
         
         if (is403 && finalUrl && finalUrl.includes('firebasestorage.googleapis.com')) {
           // Se for erro 403 em URL do Firebase Storage, tenta renovar o token
-          console.warn('Token expirado, tentando renovar:', finalUrl);
           renewToken(finalUrl);
         } else {
-          console.warn('Erro ao carregar imagem:', {
-            uri: finalUrl,
-            error: errorMsg,
-            is403,
-          });
           setImageError(true);
         }
       }}
@@ -159,32 +150,77 @@ export default function DashboardScreen() {
   const router = useRouter();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const lastLoadRef = useRef<number>(0);
 
-  useEffect(() => {
-    async function carregarDashboard() {
-      try {
-        setLoading(true);
-        setErro(null);
-        const dados = await obterDashboard();
-        setData(dados);
-        primeAlunoHeaderCache({
-          nome: dados.aluno.nome,
-          avatarUrl: dados.aluno.avatarUrl,
-          geniusCoins: dados.aluno.geniusCoins,
-        });
-      } catch (e: any) {
-        console.error('Erro ao carregar dashboard:', e);
-        setErro('Não foi possível carregar os dados do dashboard. Tente novamente.');
-      } finally {
-        setLoading(false);
+  const carregarDashboard = useCallback(async (silencioso = false) => {
+    try {
+      // Evita carregamentos muito próximos (debounce de 2 segundos)
+      const agora = Date.now();
+      if (agora - lastLoadRef.current < 2000 && !silencioso) {
+        return;
       }
+      lastLoadRef.current = agora;
+
+      if (!silencioso) {
+        setLoading(true);
+      }
+      // Quando silencioso, não ativa nenhum indicador de loading
+      setErro(null);
+
+      const dados = await obterDashboard();
+      setData(dados);
+      primeAlunoHeaderCache({
+        nome: dados.aluno.nome,
+        avatarUrl: dados.aluno.avatarUrl,
+        geniusCoins: dados.aluno.geniusCoins,
+      });
+    } catch (e: any) {
+      // Em modo silencioso, não mostra erro para não interromper a experiência
+      if (!silencioso) {
+        setErro('Não foi possível carregar os dados do dashboard. Tente novamente.');
+      }
+    } finally {
+      setLoading(false);
     }
-    carregarDashboard();
+  }, []);
+
+  // ✅ ESTRATÉGIA 1: useFocusEffect (para navegação entre telas)
+  useFocusEffect(
+    useCallback(() => {
+      carregarDashboard(true); // Carrega silenciosamente (sem loading spinner)
+    }, [carregarDashboard])
+  );
+
+  // ✅ ESTRATÉGIA 2: useEffect no mount (carregamento inicial)
+  useEffect(() => {
+    carregarDashboard(false);
+  }, [carregarDashboard]);
+
+  // ✅ ESTRATÉGIA 3: Pull-to-refresh (para recarregar manualmente)
+  const handleRefresh = useCallback(async () => {
+    try {
+      lastLoadRef.current = 0; // Reseta debounce para forçar reload
+      setRefreshing(true);
+      setErro(null);
+
+      const dados = await obterDashboard();
+      setData(dados);
+      primeAlunoHeaderCache({
+        nome: dados.aluno.nome,
+        avatarUrl: dados.aluno.avatarUrl,
+        geniusCoins: dados.aluno.geniusCoins,
+      });
+    } catch (e: any) {
+      setErro('Não foi possível carregar os dados do dashboard. Tente novamente.');
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -204,22 +240,8 @@ export default function DashboardScreen() {
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => {
-              setLoading(true);
-              setErro(null);
-                          obterDashboard()
-                            .then((dadosAtualizados) => {
-                              setData(dadosAtualizados);
-                              primeAlunoHeaderCache({
-                                nome: dadosAtualizados.aluno.nome,
-                                avatarUrl: dadosAtualizados.aluno.avatarUrl,
-                                geniusCoins: dadosAtualizados.aluno.geniusCoins,
-                              });
-                            })
-                .catch((e) => {
-                  console.error('Erro ao recarregar:', e);
-                  setErro('Não foi possível carregar os dados.');
-                })
-                .finally(() => setLoading(false));
+              lastLoadRef.current = 0;
+              carregarDashboard(false);
             }}
           >
             <Text style={styles.retryButtonText}>Tentar novamente</Text>
@@ -286,6 +308,16 @@ export default function DashboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#FF5FDB']}
+            tintColor="#FF5FDB"
+            title="Atualizando..."
+            titleColor="#666"
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -312,7 +344,7 @@ export default function DashboardScreen() {
                     <Image
                       source={{ uri: data.aluno.avatarUrl }}
                       style={styles.avatarImage}
-                      resizeMode="cover"
+                      resizeMode="contain"
                     />
                   ) : (
                     <View style={styles.avatarPlaceholder}>
@@ -737,8 +769,8 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   avatarImage: {
-    width: 64,
-    height: 64,
+    width: 70,
+    height: 70,
     borderRadius: 32,
     backgroundColor: 'transparent',
   },

@@ -3,8 +3,8 @@ import { AlunoHeaderSummary } from '@/components/AlunoHeaderSummary';
 import type { TrilhaItem } from '@/src/schemas/trilhas';
 import { listarTrilhas, type ListarTrilhasParams } from '@/src/services/trilhasService';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -74,8 +74,26 @@ export default function TrilhasScreen() {
     };
   }, [ano, materia]);
 
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      setErro(null);
+      const res = await listarTrilhas({
+        ano,
+        materia,
+        page: 1,
+        perPage: PER_PAGE,
+      } as ListarTrilhasParams);
+      setItens(res.trilhas);
+      setPage(1);
+      setTotalPages(res.totalPages);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, [ano, materia]);
+
   // pull to refresh
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
       setErro(null);
@@ -93,7 +111,16 @@ export default function TrilhasScreen() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [ano, materia]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   // infinite scroll
   const loadMore = async () => {

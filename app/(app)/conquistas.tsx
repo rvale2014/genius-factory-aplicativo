@@ -1,7 +1,7 @@
 // app/(app)/conquistas.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -188,23 +188,45 @@ export default function ConquistasScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [conquistas, setConquistas] = useState<ConquistaItem[]>([]);
   const [tabAtiva, setTabAtiva] = useState<'conquistas' | 'especiais'>('conquistas');
+  const initialLoadedRef = useRef(false);
+
+  const carregar = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErro(null);
+      const dados = await obterConquistas();
+      setConquistas(dados.conquistas);
+    } catch (e: any) {
+      console.error('Erro ao carregar conquistas:', e);
+      setErro('Não foi possível carregar as conquistas. Tente novamente.');
+    } finally {
+      setLoading(false);
+      initialLoadedRef.current = true;
+    }
+  }, []);
+
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    try {
+      const dados = await obterConquistas();
+      setConquistas(dados.conquistas);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+    }
+  }, []);
 
   useEffect(() => {
-    async function carregar() {
-      try {
-        setLoading(true);
-        setErro(null);
-        const dados = await obterConquistas();
-        setConquistas(dados.conquistas);
-      } catch (e: any) {
-        console.error('Erro ao carregar conquistas:', e);
-        setErro('Não foi possível carregar as conquistas. Tente novamente.');
-      } finally {
-        setLoading(false);
-      }
-    }
     carregar();
-  }, []);
+  }, [carregar]);
+
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
 
   if (loading) {
     return (

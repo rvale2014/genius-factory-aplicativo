@@ -2,10 +2,21 @@ import { useAlunoHeader } from '@/src/hooks/useAlunoHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSetAtom } from 'jotai';
 import { Award, Gauge, LogOut, Trophy, User } from 'lucide-react-native';
-import { useMemo } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { clearSession, sessionAtom } from '../../src/state/session';
 
 const diamondImage = require('../../assets/images/diamante.webp');
 
@@ -19,7 +30,9 @@ const MENU_ITEMS = [
 
 export default function MenuScreen() {
   const router = useRouter();
+  const setSession = useSetAtom(sessionAtom);
   const { data, loading } = useAlunoHeader();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const studentName = useMemo(() => {
     if (!data?.nome || data.nome.trim() === '') return 'Aluno';
@@ -34,6 +47,54 @@ export default function MenuScreen() {
     return '--';
   }, [data?.geniusCoins, loading]);
 
+  async function handleLogout() {
+    Alert.alert(
+      'Sair',
+      'Tem certeza que deseja sair da sua conta?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoggingOut(true);
+              
+              // 1. Limpa o SecureStore
+              await clearSession();
+              
+              // 2. Limpa o estado do Jotai
+              setSession(null);
+              
+              // 3. Redireciona para login
+              router.replace('/(auth)/login');
+            } catch (error) {
+              console.error('Erro ao fazer logout:', error);
+              Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');
+            } finally {
+              setLoggingOut(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }
+
+  function handleMenuPress(key: string, route?: string) {
+    if (key === 'sair') {
+      handleLogout();
+      return;
+    }
+    
+    if (route) {
+      router.push(route as any);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -45,7 +106,7 @@ export default function MenuScreen() {
           <View style={styles.avatarWrapper}>
             <View style={styles.avatarCircle}>
               {data?.avatarUrl ? (
-                <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+                <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} resizeMode="contain" />
               ) : (
                 <Ionicons name="person" size={36} color="#FFFFFF" />
               )}
@@ -69,20 +130,21 @@ export default function MenuScreen() {
         </View>
 
         <View style={styles.menuContainer}>
-          {MENU_ITEMS.map(({ key, label, Icon, route }, index) => (
+          {MENU_ITEMS.map(({ key, label, Icon, route }) => (
             <TouchableOpacity
               key={key}
               style={styles.menuItem}
               activeOpacity={0.8}
-              onPress={() => {
-                if (route) {
-                  router.push(route as any);
-                }
-              }}
+              disabled={loggingOut}
+              onPress={() => handleMenuPress(key, route)}
             >
               <View style={styles.menuItemLeft}>
                 <View style={styles.menuIcon}>
-                  <Icon size={20} color="#9CA3AF" strokeWidth={2} />
+                  {loggingOut && key === 'sair' ? (
+                    <ActivityIndicator size="small" color="#9CA3AF" />
+                  ) : (
+                    <Icon size={20} color="#9CA3AF" strokeWidth={2} />
+                  )}
                 </View>
                 <Text style={styles.menuLabel}>{label}</Text>
               </View>
@@ -144,9 +206,9 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   avatarImage: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 90,
+    height: 90,
+    borderRadius: 35.5,
   },
   profileInfo: {
     marginTop: 48,
@@ -204,4 +266,3 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
   },
 });
-

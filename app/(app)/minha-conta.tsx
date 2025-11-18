@@ -1,9 +1,9 @@
 // app/(app)/minha-conta.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Camera, Eye, EyeOff, Lock, User } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Camera, Eye, EyeOff, Lock, MapPin, User, Users } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +16,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import MaskInput from 'react-native-mask-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ESTADOS_BRASIL } from '../../src/constants/estados';
+import {
+  CEP_MASK,
+  CPF_MASK,
+  DATE_MASK,
+  dateFromISO,
+  dateToISO,
+  PHONE_MASK,
+  unmask
+} from '../../src/lib/masks';
 import {
   atualizarAvatar,
   atualizarPerfil,
@@ -26,6 +37,7 @@ import {
   PerfilData,
   trocarSenha,
 } from '../../src/services/perfilService';
+import { buscarCep } from '../../src/services/viaCepService';
 
 const placeholderImage = require('../../assets/images/logo_genius.webp');
 
@@ -41,8 +53,8 @@ function getInterFont(fontWeight?: string | number): string {
 type ModoEdicao = {
   pessoais: boolean;
   acesso: boolean;
-  responsavel: boolean;
   endereco: boolean;
+  responsavel: boolean;
 };
 
 export default function MinhaContaScreen() {
@@ -50,16 +62,29 @@ export default function MinhaContaScreen() {
   const [data, setData] = useState<PerfilData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const lastLoadRef = useRef<number>(0);
 
   const [modoEdicao, setModoEdicao] = useState<ModoEdicao>({
     pessoais: false,
     acesso: false,
-    responsavel: false,
     endereco: false,
+    responsavel: false,
   });
 
   // Estados dos campos editáveis
   const [formData, setFormData] = useState<Partial<PerfilData>>({});
+
+  // Estados para campos com máscara (valores exibidos)
+  const [cpfMasked, setCpfMasked] = useState('');
+  const [telefoneMasked, setTelefoneMasked] = useState('');
+  const [dataNascimentoMasked, setDataNascimentoMasked] = useState('');
+  
+  const [cepMasked, setCepMasked] = useState('');
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  
+  const [responsavelCpfMasked, setResponsavelCpfMasked] = useState('');
+  const [responsavelCelularMasked, setResponsavelCelularMasked] = useState('');
+  const [responsavelNascimentoMasked, setResponsavelNascimentoMasked] = useState('');
 
   // Modal de avatar
   const [modalAvatarAberto, setModalAvatarAberto] = useState(false);
@@ -76,30 +101,107 @@ export default function MinhaContaScreen() {
   const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
 
-  // Carregar perfil
-  useEffect(() => {
-    async function carregarPerfil() {
-      try {
-        setLoading(true);
-        setErro(null);
-        const perfil = await obterPerfil();
-        setData(perfil);
-        setFormData(perfil);
-      } catch (e: any) {
-        console.error('Erro ao carregar perfil:', e);
-        setErro('Não foi possível carregar os dados do perfil.');
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Modal de seleção de estado
+  const [modalEstadoAberto, setModalEstadoAberto] = useState(false);
 
-    carregarPerfil();
+  // Carregar perfil
+  const carregarPerfil = useCallback(async (silencioso = false) => {
+    try {
+      // Evita carregamentos muito próximos (debounce de 2 segundos)
+      const agora = Date.now();
+      if (agora - lastLoadRef.current < 2000 && !silencioso) {
+        return;
+      }
+      lastLoadRef.current = agora;
+
+      if (!silencioso) {
+        setLoading(true);
+      }
+      // Quando silencioso, não ativa nenhum indicador de loading
+      setErro(null);
+
+      const perfil = await obterPerfil();
+      setData(perfil);
+      setFormData(perfil);
+      
+      // Inicializar campos mascarados
+      setCpfMasked(perfil.cpf || '');
+      setTelefoneMasked(perfil.telefone || '');
+      setDataNascimentoMasked(perfil.dataNascimento ? dateFromISO(perfil.dataNascimento) : '');
+      
+      setCepMasked(perfil.enderecoCep || '');
+      
+      setResponsavelCpfMasked(perfil.responsavelCPF || '');
+      setResponsavelCelularMasked(perfil.responsavelCelular || '');
+      setResponsavelNascimentoMasked(
+        perfil.responsavelNascimento ? dateFromISO(perfil.responsavelNascimento) : ''
+      );
+    } catch (e: any) {
+      console.error('Erro ao carregar perfil:', e);
+      // Em modo silencioso, não mostra erro para não interromper a experiência
+      if (!silencioso) {
+        setErro('Não foi possível carregar os dados do perfil.');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // ✅ Recarrega quando a página ganha foco
+  useFocusEffect(
+    useCallback(() => {
+      carregarPerfil(true); // Carrega silenciosamente (sem loading spinner)
+    }, [carregarPerfil])
+  );
+
+  // ✅ Carregamento inicial (primeira vez que monta)
+  useEffect(() => {
+    carregarPerfil(false);
+  }, [carregarPerfil]);
+
+  // Buscar CEP do aluno
+  const handleBuscarCep = async (cep: string) => {
+    const cepLimpo = unmask(cep);
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+    const resultado = await buscarCep(cepLimpo);
+    setBuscandoCep(false);
+
+    if (resultado) {
+      setFormData((prev) => ({
+        ...prev,
+        enderecoRua: resultado.logradouro,
+        enderecoBairro: resultado.bairro,
+        enderecoCidade: resultado.localidade,
+        enderecoEstado: resultado.uf,
+      }));
+    } else {
+      Alert.alert('CEP não encontrado', 'Verifique o CEP informado.');
+    }
+  };
 
   // Salvar edição
   const handleSalvar = async (secao: keyof ModoEdicao) => {
     try {
-      await atualizarPerfil(formData);
+      // Converter data de nascimento de DD/MM/YYYY para YYYY-MM-DD antes de enviar
+      const dataParaEnviar = { ...formData };
+      
+      if (secao === 'pessoais' && dataNascimentoMasked) {
+        const isoDate = dateToISO(dataNascimentoMasked);
+        if (isoDate) {
+          dataParaEnviar.dataNascimento = isoDate;
+        }
+      }
+
+      if (secao === 'responsavel' && responsavelNascimentoMasked) {
+        const isoDate = dateToISO(responsavelNascimentoMasked);
+        if (isoDate) {
+          dataParaEnviar.responsavelNascimento = isoDate;
+        }
+      }
+
+      await atualizarPerfil(dataParaEnviar);
       Alert.alert('Sucesso', 'Dados atualizados com sucesso!');
       setModoEdicao((prev) => ({ ...prev, [secao]: false }));
       
@@ -107,6 +209,25 @@ export default function MinhaContaScreen() {
       const perfil = await obterPerfil();
       setData(perfil);
       setFormData(perfil);
+      
+      // Atualizar campos mascarados
+      if (secao === 'pessoais') {
+        setCpfMasked(perfil.cpf || '');
+        setTelefoneMasked(perfil.telefone || '');
+        setDataNascimentoMasked(perfil.dataNascimento ? dateFromISO(perfil.dataNascimento) : '');
+      }
+      
+      if (secao === 'endereco') {
+        setCepMasked(perfil.enderecoCep || '');
+      }
+      
+      if (secao === 'responsavel') {
+        setResponsavelCpfMasked(perfil.responsavelCPF || '');
+        setResponsavelCelularMasked(perfil.responsavelCelular || '');
+        setResponsavelNascimentoMasked(
+          perfil.responsavelNascimento ? dateFromISO(perfil.responsavelNascimento) : ''
+        );
+      }
     } catch (e: any) {
       console.error('Erro ao salvar:', e);
       Alert.alert('Erro', 'Não foi possível salvar os dados.');
@@ -116,6 +237,28 @@ export default function MinhaContaScreen() {
   // Cancelar edição
   const handleCancelar = (secao: keyof ModoEdicao) => {
     setFormData(data || {});
+    
+    // Restaurar valores mascarados
+    if (data) {
+      if (secao === 'pessoais') {
+        setCpfMasked(data.cpf || '');
+        setTelefoneMasked(data.telefone || '');
+        setDataNascimentoMasked(data.dataNascimento ? dateFromISO(data.dataNascimento) : '');
+      }
+      
+      if (secao === 'endereco') {
+        setCepMasked(data.enderecoCep || '');
+      }
+      
+      if (secao === 'responsavel') {
+        setResponsavelCpfMasked(data.responsavelCPF || '');
+        setResponsavelCelularMasked(data.responsavelCelular || '');
+        setResponsavelNascimentoMasked(
+          data.responsavelNascimento ? dateFromISO(data.responsavelNascimento) : ''
+        );
+      }
+    }
+    
     setModoEdicao((prev) => ({ ...prev, [secao]: false }));
   };
 
@@ -202,7 +345,7 @@ export default function MinhaContaScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
+          <ActivityIndicator size="large" color="#20C997" />
           <Text style={styles.loadingText}>Carregando perfil...</Text>
         </View>
       </SafeAreaView>
@@ -253,7 +396,7 @@ export default function MinhaContaScreen() {
         <View style={styles.avatarSection}>
           <TouchableOpacity style={styles.avatarContainer} onPress={handleAbrirModalAvatar}>
             {imagemPerfil ? (
-              <Image source={{ uri: imagemPerfil }} style={styles.avatarImage} resizeMode="cover" />
+              <Image source={{ uri: imagemPerfil }} style={styles.avatarImage} resizeMode="contain" />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarInitials}>{initials}</Text>
@@ -317,10 +460,14 @@ export default function MinhaContaScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>CPF</Text>
             {modoEdicao.pessoais ? (
-              <TextInput
+              <MaskInput
                 style={styles.input}
-                value={formData.cpf ?? ''}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, cpf: text }))}
+                value={cpfMasked}
+                onChangeText={(masked, unmasked) => {
+                  setCpfMasked(masked);
+                  setFormData((prev) => ({ ...prev, cpf: masked }));
+                }}
+                mask={CPF_MASK}
                 keyboardType="numeric"
               />
             ) : (
@@ -331,13 +478,37 @@ export default function MinhaContaScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Telefone</Text>
+            {modoEdicao.pessoais ? (
+              <MaskInput
+                style={styles.input}
+                value={telefoneMasked}
+                onChangeText={(masked, unmasked) => {
+                  setTelefoneMasked(masked);
+                  setFormData((prev) => ({ ...prev, telefone: masked }));
+                }}
+                mask={PHONE_MASK}
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.telefone || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Data de nascimento</Text>
             {modoEdicao.pessoais ? (
-              <TextInput
+              <MaskInput
                 style={styles.input}
-                value={formData.dataNascimento ?? ''}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, dataNascimento: text }))}
-                placeholder="AAAA-MM-DD"
+                value={dataNascimentoMasked}
+                onChangeText={(masked, unmasked) => {
+                  setDataNascimentoMasked(masked);
+                }}
+                mask={DATE_MASK}
+                keyboardType="numeric"
+                placeholder="DD/MM/AAAA"
               />
             ) : (
               <View style={styles.fieldValue}>
@@ -428,6 +599,296 @@ export default function MinhaContaScreen() {
           </View>
         </View>
 
+        {/* Seção Endereço */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.iconContainer}>
+                <MapPin size={16} color="#7A34FF" />
+              </View>
+              <Text style={styles.sectionTitle}>Endereço</Text>
+            </View>
+            {modoEdicao.endereco ? (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => handleCancelar('endereco')}
+                >
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={() => handleSalvar('endereco')}
+                >
+                  <Text style={styles.saveButtonText}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setModoEdicao((prev) => ({ ...prev, endereco: true }))}
+              >
+                <Text style={styles.editButtonText}>Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>CEP</Text>
+            {modoEdicao.endereco ? (
+              <View style={styles.cepContainer}>
+                <MaskInput
+                  style={[styles.input, styles.cepInput]}
+                  value={cepMasked}
+                  onChangeText={(masked, unmasked) => {
+                    setCepMasked(masked);
+                    setFormData((prev) => ({ ...prev, enderecoCep: masked }));
+                  }}
+                  mask={CEP_MASK}
+                  keyboardType="numeric"
+                  onBlur={() => handleBuscarCep(cepMasked)}
+                />
+                {buscandoCep && <ActivityIndicator size="small" color="#7A34FF" />}
+              </View>
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.enderecoCep || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Rua</Text>
+            {modoEdicao.endereco ? (
+              <TextInput
+                style={styles.input}
+                value={formData.enderecoRua ?? ''}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, enderecoRua: text }))}
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.enderecoRua || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldRow}>
+            <View style={[styles.fieldGroup, styles.fieldHalf]}>
+              <Text style={styles.fieldLabel}>Número</Text>
+              {modoEdicao.endereco ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.enderecoNumero ?? ''}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, enderecoNumero: text }))}
+                />
+              ) : (
+                <View style={styles.fieldValue}>
+                  <Text style={styles.fieldValueText}>{data.enderecoNumero || '-'}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.fieldGroup, styles.fieldHalf]}>
+              <Text style={styles.fieldLabel}>Complemento</Text>
+              {modoEdicao.endereco ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.enderecoComplemento ?? ''}
+                  onChangeText={(text) =>
+                    setFormData((prev) => ({ ...prev, enderecoComplemento: text }))
+                  }
+                />
+              ) : (
+                <View style={styles.fieldValue}>
+                  <Text style={styles.fieldValueText}>{data.enderecoComplemento || '-'}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Bairro</Text>
+            {modoEdicao.endereco ? (
+              <TextInput
+                style={styles.input}
+                value={formData.enderecoBairro ?? ''}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, enderecoBairro: text }))}
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.enderecoBairro || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldRow}>
+            <View style={[styles.fieldGroup, styles.fieldExpanded]}>
+              <Text style={styles.fieldLabel}>Cidade</Text>
+              {modoEdicao.endereco ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.enderecoCidade ?? ''}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, enderecoCidade: text }))}
+                />
+              ) : (
+                <View style={styles.fieldValue}>
+                  <Text style={styles.fieldValueText}>{data.enderecoCidade || '-'}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.fieldGroup, styles.fieldSmall]}>
+              <Text style={styles.fieldLabel}>Estado</Text>
+              {modoEdicao.endereco ? (
+                <TouchableOpacity
+                  style={styles.selectButton}
+                  onPress={() => setModalEstadoAberto(true)}
+                >
+                  <Text style={styles.selectButtonText}>
+                    {formData.enderecoEstado || 'UF'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#666" />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.fieldValue}>
+                  <Text style={styles.fieldValueText}>{data.enderecoEstado || '-'}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Seção Responsável */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.iconContainer}>
+                <Users size={16} color="#7A34FF" />
+              </View>
+              <Text style={styles.sectionTitle}>Responsável</Text>
+            </View>
+            {modoEdicao.responsavel ? (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => handleCancelar('responsavel')}
+                >
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={() => handleSalvar('responsavel')}
+                >
+                  <Text style={styles.saveButtonText}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setModoEdicao((prev) => ({ ...prev, responsavel: true }))}
+              >
+                <Text style={styles.editButtonText}>Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Nome completo</Text>
+            {modoEdicao.responsavel ? (
+              <TextInput
+                style={styles.input}
+                value={formData.responsavelNome ?? ''}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, responsavelNome: text }))}
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.responsavelNome || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>CPF</Text>
+            {modoEdicao.responsavel ? (
+              <MaskInput
+                style={styles.input}
+                value={responsavelCpfMasked}
+                onChangeText={(masked, unmasked) => {
+                  setResponsavelCpfMasked(masked);
+                  setFormData((prev) => ({ ...prev, responsavelCPF: masked }));
+                }}
+                mask={CPF_MASK}
+                keyboardType="numeric"
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.responsavelCPF || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>E-mail</Text>
+            {modoEdicao.responsavel ? (
+              <TextInput
+                style={styles.input}
+                value={formData.responsavelEmail ?? ''}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, responsavelEmail: text }))}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.responsavelEmail || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Celular</Text>
+            {modoEdicao.responsavel ? (
+              <MaskInput
+                style={styles.input}
+                value={responsavelCelularMasked}
+                onChangeText={(masked, unmasked) => {
+                  setResponsavelCelularMasked(masked);
+                  setFormData((prev) => ({ ...prev, responsavelCelular: masked }));
+                }}
+                mask={PHONE_MASK}
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>{data.responsavelCelular || '-'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Data de nascimento</Text>
+            {modoEdicao.responsavel ? (
+              <MaskInput
+                style={styles.input}
+                value={responsavelNascimentoMasked}
+                onChangeText={(masked, unmasked) => {
+                  setResponsavelNascimentoMasked(masked);
+                }}
+                mask={DATE_MASK}
+                keyboardType="numeric"
+                placeholder="DD/MM/AAAA"
+              />
+            ) : (
+              <View style={styles.fieldValue}>
+                <Text style={styles.fieldValueText}>
+                  {data.responsavelNascimento
+                    ? new Date(data.responsavelNascimento).toLocaleDateString('pt-BR')
+                    : '-'}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -465,7 +926,7 @@ export default function MinhaContaScreen() {
                       style={styles.avatarOptionImage}
                       resizeMode="contain"
                     />
-                    <Text style={styles.avatarOptionName} numberOfLines={1}>
+                    <Text style={styles.avatarOptionName} numberOfLines={3}>
                       {avatar.nome}
                     </Text>
                   </TouchableOpacity>
@@ -566,6 +1027,43 @@ export default function MinhaContaScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Seleção de Estado (Endereço do Aluno) */}
+      <Modal
+        visible={modalEstadoAberto}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalEstadoAberto(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecione o Estado</Text>
+              <TouchableOpacity onPress={() => setModalEstadoAberto(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.estadosList}>
+              {ESTADOS_BRASIL.map((estado) => (
+                <TouchableOpacity
+                  key={estado.value}
+                  style={styles.estadoItem}
+                  onPress={() => {
+                    setFormData((prev) => ({ ...prev, enderecoEstado: estado.value }));
+                    setModalEstadoAberto(false);
+                  }}
+                >
+                  <Text style={styles.estadoItemText}>
+                    {estado.label} - {estado.value}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -600,7 +1098,7 @@ const styles = StyleSheet.create({
     fontFamily: getInterFont('400'),
   },
   retryButton: {
-    backgroundColor: '#FF5FDB',
+    backgroundColor: '#20C997',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -649,10 +1147,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    width: '95%',
+    height: '95%',
   },
   avatarPlaceholder: {
     width: '100%',
@@ -711,6 +1211,19 @@ const styles = StyleSheet.create({
     color: '#333',
     fontFamily: getInterFont('700'),
   },
+  subsectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  subsectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7A34FF',
+    fontFamily: getInterFont('600'),
+  },
   buttonRow: {
     flexDirection: 'row',
     gap: 8,
@@ -745,7 +1258,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#FF5FDB',
+    backgroundColor: '#20C997',
   },
   saveButtonText: {
     fontSize: 12,
@@ -757,7 +1270,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#FF5FDB',
+    backgroundColor: '#20C997',
   },
   changePasswordButtonText: {
     fontSize: 12,
@@ -799,6 +1312,43 @@ const styles = StyleSheet.create({
     color: '#666',
     fontFamily: getInterFont('400'),
   },
+  fieldRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  fieldHalf: {
+    flex: 1,
+  },
+  fieldExpanded: {
+    flex: 2,
+  },
+  fieldSmall: {
+    flex: 1,
+  },
+  cepContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cepInput: {
+    flex: 1,
+  },
+  selectButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectButtonText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: getInterFont('400'),
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -827,7 +1377,8 @@ const styles = StyleSheet.create({
   avatarsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    columnGap: 40,
+    rowGap: 6,
     marginBottom: 20,
   },
   avatarOption: {
@@ -859,26 +1410,26 @@ const styles = StyleSheet.create({
   },
   removeAvatarButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
   },
   removeAvatarButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#4B5563',
     fontFamily: getInterFont('600'),
   },
   saveAvatarButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: '#10B981',
     alignItems: 'center',
   },
   saveAvatarButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: getInterFont('600'),
@@ -905,7 +1456,7 @@ const styles = StyleSheet.create({
   changePasswordSubmitButton: {
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#FF5FDB',
+    backgroundColor: '#20C997',
     alignItems: 'center',
   },
   changePasswordSubmitButtonText: {
@@ -913,5 +1464,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: getInterFont('600'),
+  },
+  estadosList: {
+    maxHeight: 400,
+  },
+  estadoItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  estadoItemText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: getInterFont('400'),
   },
 });
