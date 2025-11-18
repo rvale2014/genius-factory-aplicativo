@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo } from "react";
 import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    useWindowDimensions,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import RenderHTML from "react-native-render-html";
 
@@ -14,16 +14,16 @@ import BlocoRapidoAluno from "./BlocoRapidoAluno";
 import ColorirFiguraAluno, { ConteudoColorir } from "./ColorirFiguraAluno";
 import CompletarAluno from "./CompletarAluno";
 import CompletarTopoAluno, {
-    ConteudoCompletarTopo,
+  ConteudoCompletarTopo,
 } from "./CompletarTopoAluno";
 import LigarColunasAluno from "./LigarColunasAluno";
 import QuestaoTabela from "./QuestaoTabela";
 import SelecaoMultiplaAluno, {
-    SelecaoMultiplaAlternativa,
+  SelecaoMultiplaAlternativa,
 } from "./SelecaoMultiplaAluno";
 import {
-    normalizeAlternativas,
-    parseConteudo,
+  normalizeAlternativas,
+  parseConteudo,
 } from "./utils";
 
 export type QuestaoSimuladoData = {
@@ -72,6 +72,16 @@ export default function QuestaoSimuladoCard({
     }),
     [questao.enunciado],
   );
+
+  // Memoizar props do RenderHTML para evitar rerenders desnecessários
+  const defaultTextPropsSimulado = useMemo(() => ({ selectable: false }), []);
+  const tagsStylesSimulado = useMemo(() => ({
+    p: styles.paragraph,
+    strong: styles.strong,
+    b: styles.strong,
+    em: styles.em,
+    i: styles.em,
+  }), []);
 
   const isObjetiva =
     questao.tipo === "multipla_escolha" || questao.tipo === "certa_errada";
@@ -417,7 +427,7 @@ export default function QuestaoSimuladoCard({
     [onChange],
   );
 
-  const contentWidth = Math.min(width, 600) - 40;
+  const contentWidth = useMemo(() => Math.min(width, 600) - 40, [width]);
 
   return (
     <View style={styles.container}>
@@ -425,14 +435,8 @@ export default function QuestaoSimuladoCard({
         contentWidth={contentWidth}
         source={htmlSource}
         baseStyle={styles.enunciado}
-        defaultTextProps={{ selectable: false }}
-        tagsStyles={{
-          p: styles.paragraph,
-          strong: styles.strong,
-          b: styles.strong,
-          em: styles.em,
-          i: styles.em,
-        }}
+        defaultTextProps={defaultTextPropsSimulado}
+        tagsStyles={tagsStylesSimulado}
       />
 
       {isObjetiva && alternativas.length > 0 ? (

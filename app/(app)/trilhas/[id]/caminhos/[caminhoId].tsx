@@ -78,9 +78,7 @@ export default function CaminhoScreen() {
   };
 
   const handlePressBloco = (blocoId: string) => {
-    // TODO: Navegar para a tela do bloco quando estiver pronta
-    console.log('Navegar para bloco:', blocoId);
-    // router.push(`/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`);
+    router.push(`/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`)
   };
 
   if (loading) {

@@ -2,21 +2,21 @@
 import { useQbankAudios } from '@/src/hooks/useQbankAudios';
 import { Ionicons } from '@expo/vector-icons';
 import React, {
-    forwardRef,
-    useCallback,
-    useImperativeHandle,
-    useMemo,
-    useState,
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
 } from 'react';
 import {
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import RenderHTML from 'react-native-render-html';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -104,6 +104,24 @@ const ConteudoExtraModal = forwardRef<ConteudoExtraModalRef, Props>(
     const temDica = Boolean(dica) || dicaHasAudio;
     const temTexto = Boolean(comentarioTexto) || comentHasAudio;
 
+    // Memoizar contentWidth para evitar recálculos
+    const contentWidth = useMemo(() => width - 48, [width]);
+
+    // Memoizar props do RenderHTML para evitar rerenders desnecessários
+    const tagsStylesHTML = useMemo(() => ({
+      p: styles.htmlParagraph,
+      strong: styles.htmlStrong,
+      em: styles.htmlEm,
+    }), []);
+
+    const htmlSourceDica = useMemo(() => ({
+      html: dica || '',
+    }), [dica]);
+
+    const htmlSourceComentario = useMemo(() => ({
+      html: comentarioTexto || '',
+    }), [comentarioTexto]);
+
     const handleChangeAba = useCallback((aba: Aba) => {
       // ✅ Permitir mudança de aba, mas bloquear conteúdo se não respondido
       setAbaAtiva(aba);
@@ -189,14 +207,10 @@ const ConteudoExtraModal = forwardRef<ConteudoExtraModalRef, Props>(
 
         {dica ? (
           <RenderHTML
-            contentWidth={width - 48}
-            source={{ html: dica }}
+            contentWidth={contentWidth}
+            source={htmlSourceDica}
             baseStyle={styles.htmlBase}
-            tagsStyles={{
-              p: styles.htmlParagraph,
-              strong: styles.htmlStrong,
-              em: styles.htmlEm,
-            }}
+            tagsStyles={tagsStylesHTML}
           />
         ) : (
           !dicaAudioLoading && !dicaHasAudio && (
@@ -256,14 +270,10 @@ const ConteudoExtraModal = forwardRef<ConteudoExtraModalRef, Props>(
 
             {comentarioTexto ? (
               <RenderHTML
-                contentWidth={width - 48}
-                source={{ html: comentarioTexto }}
+                contentWidth={contentWidth}
+                source={htmlSourceComentario}
                 baseStyle={styles.htmlBase}
-                tagsStyles={{
-                  p: styles.htmlParagraph,
-                  strong: styles.htmlStrong,
-                  em: styles.htmlEm,
-                }}
+                tagsStyles={tagsStylesHTML}
               />
             ) : (
               !comentAudioLoading && !comentHasAudio && (

@@ -69,13 +69,23 @@ export function QuestaoCard({ questao }: Props) {
   const alternativas = useMemo(() => normalizeAlternativas(questao), [questao]);
   const imagensAlternativas = useMemo(() => questao.imagensAlternativas ?? [], [questao.imagensAlternativas]);
   
-  const contentWidth = Math.min(width, 600) - 40;
+  const contentWidth = useMemo(() => Math.min(width, 600) - 40, [width]);
   const htmlSource = useMemo(
     () => ({
       html: questao.enunciado?.trim() ? questao.enunciado : "<p>Enunciado indisponível.</p>",
     }),
     [questao.enunciado],
   );
+
+  // Memoizar props do RenderHTML para evitar rerenders desnecessários
+  const defaultTextPropsEnunciado = useMemo(() => ({ selectable: false }), []);
+  const tagsStylesEnunciado = useMemo(() => ({
+    p: styles.paragraph,
+    strong: styles.strong,
+    b: styles.strong,
+    em: styles.em,
+    i: styles.em,
+  }), []);
 
   const isObjetiva = questao.tipo === "multipla_escolha" || questao.tipo === "certa_errada";
   const isDissertativa = questao.tipo === "dissertativa" || questao.tipo === "objetiva_curta";
@@ -665,14 +675,8 @@ return (
             contentWidth={contentWidth}
             source={htmlSource}
             baseStyle={styles.enunciado}
-            defaultTextProps={{ selectable: false }}
-            tagsStyles={{
-              p: styles.paragraph,
-              strong: styles.strong,
-              b: styles.strong,
-              em: styles.em,
-              i: styles.em,
-            }}
+            defaultTextProps={defaultTextPropsEnunciado}
+            tagsStyles={tagsStylesEnunciado}
           />
         </View>
 

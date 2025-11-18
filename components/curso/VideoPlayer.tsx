@@ -1,8 +1,8 @@
 // components/curso/VideoPlayer.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
-import React, { useEffect, useRef, useState } from 'react';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -17,49 +17,49 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
-  const videoRef = useRef<Video>(null);
-  const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = false;
+    player.muted = false;
+  });
+
   useEffect(() => {
+    if (!player) return;
+
     setLoading(true);
     setError(null);
-  }, [uri]);
 
-  const handlePlaybackStatusUpdate = (playbackStatus: AVPlaybackStatus) => {
-    setStatus(playbackStatus);
+    const subscription = player.addListener('statusChange', () => {
+      const status = player.status;
 
-    if (playbackStatus.isLoaded) {
-      setLoading(false);
+      if (status === 'readyToPlay') {
+        setLoading(false);
+      }
+
+      if (status === 'error') {
+        const errorMsg = 'Erro ao reproduzir o vídeo';
+        setError(errorMsg);
+        setLoading(false);
+        onError?.(errorMsg);
+      }
 
       // Vídeo terminou
-      if (playbackStatus.didJustFinish && !playbackStatus.isLooping) {
+      if (status === 'idle' && player.currentTime === player.duration && player.currentTime > 0) {
         onEnded?.();
       }
-    } else if (playbackStatus.error) {
-      const errorMsg = `Erro ao reproduzir: ${playbackStatus.error}`;
-      setError(errorMsg);
+    });
+
+    // Verifica status inicial
+    if (player.status === 'readyToPlay') {
       setLoading(false);
-      onError?.(errorMsg);
     }
-  };
 
-  const togglePlayPause = async () => {
-    if (!videoRef.current || !status) return;
-
-    try {
-      if (status.isLoaded) {
-        if (status.isPlaying) {
-          await videoRef.current.pauseAsync();
-        } else {
-          await videoRef.current.playAsync();
-        }
-      }
-    } catch (err) {
-      console.error('Erro ao alternar play/pause:', err);
-    }
-  };
+    return () => {
+      subscription.remove();
+    };
+  }, [player, onEnded, onError]);
 
   if (error) {
     return (
@@ -72,14 +72,11 @@ export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
 
   return (
     <View style={styles.container}>
-      <Video
-        ref={videoRef}
-        source={{ uri }}
+      <VideoView
+        player={player}
         style={styles.video}
-        resizeMode={ResizeMode.CONTAIN}
-        useNativeControls
-        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-        shouldPlay={false}
+        nativeControls
+        contentFit="contain"
       />
 
       {loading && (

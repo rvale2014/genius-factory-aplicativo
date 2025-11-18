@@ -155,7 +155,37 @@ export default function VisualizarQuestaoResultadoSheet({
     };
   }, [open, simuladoId, questaoId]);
 
-  const contentWidth = Math.min(width, 600) - 32;
+  const contentWidth = useMemo(() => Math.min(width, 600) - 32, [width]);
+
+  // Memoizar props do RenderHTML para evitar rerenders desnecessários
+  const htmlSourceEnunciado = useMemo(() => ({
+    html: dados?.enunciado?.trim()
+      ? dados.enunciado
+      : "<p>Enunciado indisponível.</p>",
+  }), [dados?.enunciado]);
+
+  const defaultTextPropsEnunciado = useMemo(() => ({ selectable: false }), []);
+  const tagsStylesEnunciado = useMemo(() => ({
+    p: styles.paragraph,
+    strong: styles.strong,
+    b: styles.strong,
+    em: styles.em,
+    i: styles.em,
+  }), []);
+
+  const defaultTextPropsComentario = useMemo(() => ({
+    selectable: false,
+    style: { fontFamily: "Inter" },
+  }), []);
+  const tagsStylesComentario = useMemo(() => ({
+    p: styles.comentarioParagraph,
+    strong: styles.strong,
+    b: styles.strong,
+  }), []);
+
+  const htmlSourceComentario = useMemo(() => ({
+    html: dados?.comentarioTexto || "",
+  }), [dados?.comentarioTexto]);
 
   if (!open || !questaoId) return null;
 
@@ -230,20 +260,10 @@ export default function VisualizarQuestaoResultadoSheet({
             <View style={styles.enunciadoContainer}>
               <RenderHTML
                 contentWidth={contentWidth}
-                source={{
-                  html: dados.enunciado?.trim()
-                    ? dados.enunciado
-                    : "<p>Enunciado indisponível.</p>",
-                }}
+                source={htmlSourceEnunciado}
                 baseStyle={styles.enunciado}
-                defaultTextProps={{ selectable: false }}
-                tagsStyles={{
-                  p: styles.paragraph,
-                  strong: styles.strong,
-                  b: styles.strong,
-                  em: styles.em,
-                  i: styles.em,
-                }}
+                defaultTextProps={defaultTextPropsEnunciado}
+                tagsStyles={tagsStylesEnunciado}
               />
             </View>
 
@@ -305,17 +325,10 @@ export default function VisualizarQuestaoResultadoSheet({
                   {dados.comentarioTexto ? (
                     <RenderHTML
                       contentWidth={contentWidth}
-                      source={{ html: dados.comentarioTexto }}
+                      source={htmlSourceComentario}
                       baseStyle={styles.comentario}
-                      defaultTextProps={{
-                        selectable: false,
-                        style: { fontFamily: "Inter" },
-                      }}
-                      tagsStyles={{
-                        p: styles.comentarioParagraph,
-                        strong: styles.strong,
-                        b: styles.strong,
-                      }}
+                      defaultTextProps={defaultTextPropsComentario}
+                      tagsStyles={tagsStylesComentario}
                     />
                   ) : (
                     <View style={styles.emptyState}>

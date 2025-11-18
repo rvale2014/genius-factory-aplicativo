@@ -41,7 +41,7 @@ export async function obterCaminho(
           { headers }
         );
 
-        // 304: dados não mudaram, atualiza só o timestamp
+        // 304: dados não mudaram, atualiza só o timestamp (não é erro, é sucesso!)
         if (response.status === 304) {
           const refreshed: CacheEntry = {
             ...entry,

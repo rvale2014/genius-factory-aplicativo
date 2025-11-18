@@ -1,6 +1,6 @@
 // components/AudioPlayerSimple.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -9,79 +9,62 @@ type Props = {
 };
 
 export default function AudioPlayerSimple({ src }: Props) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
 
+  const player = useAudioPlayer(src);
+
   useEffect(() => {
+    if (!player) return;
+
+    // Atualiza posição e duração periodicamente
+    const interval = setInterval(() => {
+      if (player) {
+        const currentDuration = player.duration ?? 0;
+        const currentPosition = player.currentTime ?? 0;
+        
+        setDuration(currentDuration * 1000); // Converter segundos para milissegundos
+        setPosition(currentPosition * 1000); // Converter segundos para milissegundos
+        
+        // Detecta quando termina de carregar (tem duração > 0)
+        if (currentDuration > 0 && isLoading) {
+          setIsLoading(false);
+        }
+        
+        // Se terminou de tocar, resetar
+        if (currentDuration > 0 && currentPosition >= currentDuration) {
+          player.seekTo(0);
+          player.pause();
+        }
+      }
+    }, 100);
+
     return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
+      clearInterval(interval);
     };
-  }, [sound]);
+  }, [player, isLoading]);
 
-  async function loadAndPlay() {
-    try {
-      setIsLoading(true);
+  function handlePlayPause() {
+    if (!player) return;
 
-      // Configurar modo de áudio
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: src },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate
-      );
-
-      setSound(newSound);
-      setIsPlaying(true);
-    } catch (error) {
-      console.error('Erro ao carregar áudio:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function onPlaybackStatusUpdate(status: any) {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis || 0);
-      setDuration(status.durationMillis || 0);
-      setIsPlaying(status.isPlaying);
-
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
-      }
-    }
-  }
-
-  async function handlePlayPause() {
-    if (!sound) {
-      await loadAndPlay();
-      return;
-    }
-
-    if (isPlaying) {
-      await sound.pauseAsync();
+    if (player.playing) {
+      player.pause();
     } else {
-      await sound.playAsync();
+      player.play();
     }
   }
 
-  async function handleStop() {
-    if (sound) {
-      await sound.stopAsync();
-      await sound.setPositionAsync(0);
-      setPosition(0);
-      setIsPlaying(false);
-    }
+  function handleStop() {
+    if (!player) return;
+
+    player.pause();
+    player.seekTo(0);
+    setPosition(0);
   }
+
+  const isPlaying = player?.playing ?? false;
+  const hasLoaded = duration > 0;
 
   function formatTime(millis: number) {
     const totalSeconds = Math.floor(millis / 1000);
@@ -113,13 +96,13 @@ export default function AudioPlayerSimple({ src }: Props) {
 
         <TouchableOpacity
           onPress={handleStop}
-          disabled={!sound || isLoading}
+          disabled={!hasLoaded || isLoading}
           style={styles.stopButton}
         >
           <Ionicons
             name="stop"
             size={20}
-            color={!sound ? '#9CA3AF' : '#7C3AED'}
+            color={!hasLoaded ? '#9CA3AF' : '#7C3AED'}
           />
         </TouchableOpacity>
       </View>

@@ -6,31 +6,35 @@ export default ({ config }: { config: ExpoConfig }) => ({
   ...config,
   name: 'Genius Factory',
   slug: 'genius-factory-aplicativo',
-  scheme: 'geniusfactory', // URL scheme para deep linking
+  scheme: 'geniusfactory',
+  
+  // ✅ CORRETO: Cada plugin em sua própria entrada
+  plugins: [
+    [
+      'expo-video',
+      {
+        supportsBackgroundPlayback: false,
+        supportsPictureInPicture: false,
+      },
+    ],
+    [
+      'expo-audio',
+      {
+        // Configurações do expo-audio
+        // (pode deixar vazio para usar padrões)
+      },
+    ],
+  ],
+  
   extra: {
-    apiPort: process.env.EXPO_PUBLIC_API_PORT, // 3000 do seu .env
-    // opcional: apiUrl fixa -> process.env.EXPO_PUBLIC_API_URL
+    apiPort: process.env.EXPO_PUBLIC_API_PORT,
   },
+  
   ios: {
     bundleIdentifier: 'com.geniusfactory.app',
-    // Para Universal Links (opcional, mas recomendado)
-    // associatedDomains: ['applinks:seudominio.com'],
   },
+  
   android: {
     package: 'com.geniusfactory.app',
-    // Para App Links (opcional, mas recomendado)
-    // intentFilters: [
-    //   {
-    //     action: 'VIEW',
-    //     data: [
-    //       {
-    //         scheme: 'https',
-    //         host: 'seudominio.com',
-    //         pathPrefix: '/reset-password',
-    //       },
-    //     ],
-    //     category: ['BROWSABLE', 'DEFAULT'],
-    //   },
-    // ],
   },
 });

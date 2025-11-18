@@ -10,6 +10,10 @@ export const api = axios.create({
   baseURL: getBaseUrl(),
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  validateStatus: (status) => {
+    // Aceita 200-299 (sucesso) e 304 (Not Modified) como sucesso
+    return (status >= 200 && status < 300) || status === 304;
+  },
 });
 
 // Função auxiliar para fazer refresh do token (sem usar api para evitar ciclo)

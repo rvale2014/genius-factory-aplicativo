@@ -63,6 +63,38 @@ function getInterFont(fontWeight?: string | number): string {
   return 'Inter-Regular';
 }
 
+// Componente memoizado para renderizar HTML de dúvidas
+const DuvidaHTML = React.memo<{ html: string; contentWidth: number; baseStyle: any; tagsStyles: any }>(
+  ({ html, contentWidth, baseStyle, tagsStyles }) => {
+    const htmlSource = useMemo(() => ({ html: html || '<p></p>' }), [html]);
+    return (
+      <RenderHTML
+        contentWidth={contentWidth}
+        source={htmlSource}
+        baseStyle={baseStyle}
+        tagsStyles={tagsStyles}
+      />
+    );
+  }
+);
+DuvidaHTML.displayName = 'DuvidaHTML';
+
+// Componente memoizado para renderizar HTML de respostas
+const RespostaHTML = React.memo<{ html: string; contentWidth: number; baseStyle: any; tagsStyles: any }>(
+  ({ html, contentWidth, baseStyle, tagsStyles }) => {
+    const htmlSource = useMemo(() => ({ html: html || '<p></p>' }), [html]);
+    return (
+      <RenderHTML
+        contentWidth={contentWidth}
+        source={htmlSource}
+        baseStyle={baseStyle}
+        tagsStyles={tagsStyles}
+      />
+    );
+  }
+);
+RespostaHTML.displayName = 'RespostaHTML';
+
 export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
   const { width } = useWindowDimensions();
   const [itens, setItens] = useState<DuvidaItem[]>([]);
@@ -86,6 +118,26 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
     () => Math.max(1, Math.ceil(total / pageSize)),
     [total, pageSize]
   );
+
+  // Memoizar contentWidth para evitar recálculos
+  const contentWidth = useMemo(() => width - 80, [width]);
+
+  // Memoizar props do RenderHTML para evitar rerenders desnecessários
+  const tagsStylesDuvida = useMemo(() => ({
+    p: styles.htmlParagraphDuvida,
+    strong: styles.htmlStrong,
+    em: styles.htmlEm,
+    ul: styles.htmlList,
+    li: styles.htmlListItemDuvida,
+  }), []);
+
+  const tagsStylesResposta = useMemo(() => ({
+    p: styles.htmlParagraph,
+    strong: styles.htmlStrong,
+    em: styles.htmlEm,
+    ul: styles.htmlList,
+    li: styles.htmlListItem,
+  }), []);
 
   const carregar = useCallback(async () => {
     try {
@@ -306,17 +358,11 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
 
                 {/* Corpo da dúvida */}
                 <View style={styles.duvidaCorpoContainer}>
-                  <RenderHTML
-                    contentWidth={width - 80}
-                    source={{ html: d.corpo || '<p></p>' }}
+                  <DuvidaHTML
+                    html={d.corpo}
+                    contentWidth={contentWidth}
                     baseStyle={styles.duvidaCorpo}
-                    tagsStyles={{
-                      p: styles.htmlParagraphDuvida,
-                      strong: styles.htmlStrong,
-                      em: styles.htmlEm,
-                      ul: styles.htmlList,
-                      li: styles.htmlListItemDuvida,
-                    }}
+                    tagsStyles={tagsStylesDuvida}
                   />
                 </View>
 
@@ -383,17 +429,11 @@ export function ForumDuvidasAula({ aulaId }: ForumDuvidasAulaProps) {
                           </View>
 
                           <View style={styles.respostaCorpoContainer}>
-                            <RenderHTML
-                              contentWidth={width - 80}
-                              source={{ html: r.corpo || '<p></p>' }}
+                            <RespostaHTML
+                              html={r.corpo}
+                              contentWidth={contentWidth}
                               baseStyle={styles.respostaCorpo}
-                              tagsStyles={{
-                                p: styles.htmlParagraph,
-                                strong: styles.htmlStrong,
-                                em: styles.htmlEm,
-                                ul: styles.htmlList,
-                                li: styles.htmlListItem,
-                              }}
+                              tagsStyles={tagsStylesResposta}
                             />
                           </View>
 
