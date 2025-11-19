@@ -2,7 +2,7 @@
 
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -49,6 +49,7 @@ export function BlocoContainer() {
   const [paginas, setPaginas] = useState<PaginaInfo[]>([])
   const [paginaAtual, setPaginaAtual] = useState(0)
   const [paginasConcluidas, setPaginasConcluidas] = useState<boolean[]>([])
+  const [paginasComErro, setPaginasComErro] = useState<number[]>([])
 
   // Conquistas
   const [conquistasDesbloqueadas, setConquistasDesbloqueadas] = useState<any[]>([])
@@ -66,96 +67,119 @@ export function BlocoContainer() {
   // 2. Restaurar posição do AsyncStorage
   const [posicaoRestaurada, setPosicaoRestaurada] = useState<number | null>(null)
   
+  // Ref para rastrear se o carregamento inicial já foi feito
+  const initialLoadedRef = useRef(false)
+  
   async function restaurarPosicao(blocoId: string, totalPaginas: number, paginasInfo: PaginaInfo[], questoesMap: Record<string, any>) {
     try {
-      const posKey = `@geniusfactory:pos-bloco-${blocoId}`
-      const doneKey = `@geniusfactory:done-bloco-${blocoId}`
-
+      // PRIMEIRO: Verificar se o bloco está em modo "refazer"
+      const refazerKey = `@geniusfactory:refazer-bloco-${blocoId}`;
+      const emModoRefazer = await AsyncStorage.getItem(refazerKey);
+      
+      console.log(`[BlocoContainer.restaurarPosicao] 🔍 Modo refazer: ${emModoRefazer}`);
+      
+      // Se está em modo refazer, NÃO restaura nada - começa do zero
+      if (emModoRefazer === 'true') {
+        console.log(`[BlocoContainer.restaurarPosicao] 🔄 Bloco em modo REFAZER - iniciando do zero`);
+        console.log(`[BlocoContainer.restaurarPosicao] 📊 Setando ${totalPaginas} páginas como não concluídas`);
+        
+        // ✅ CRÍTICO: Remove a flag IMEDIATAMENTE após detectar
+        // Isso permite que navegações futuras restaurem estados salvos NESTA sessão
+        await AsyncStorage.removeItem(refazerKey);
+        console.log(`[BlocoContainer.restaurarPosicao] ✅ Flag de refazer removida - navegações futuras restaurarão estados`);
+        
+        setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false));
+        setPosicaoRestaurada(0);
+        return;
+      }
+      
+      console.log(`[BlocoContainer.restaurarPosicao] ➡️ Modo normal - tentando restaurar estado`);
+      
+      const posKey = `@geniusfactory:pos-bloco-${blocoId}`;
+      const doneKey = `@geniusfactory:done-bloco-${blocoId}`;
+  
       const [posRaw, doneRaw] = await Promise.all([
         AsyncStorage.getItem(posKey),
         AsyncStorage.getItem(doneKey),
-      ])
-
+      ]);
+  
       // Inicializar paginasConcluidas como array vazio primeiro
-      const concluidas = Array.from({ length: totalPaginas }, () => false)
+      const concluidas = Array.from({ length: totalPaginas }, () => false);
       
       // Verificar se há evidência de progresso REAL neste bloco
-      let temProgressoReal = false
-
-      // Verificar se há dados salvos para este bloco específico
-      // E verificar individualmente cada página que tem questão para garantir que foi realmente respondida
+      let temProgressoReal = false;
+  
+      // PRIMEIRO: Verificar TODAS as páginas de questões para garantir que questões com estado salvo sejam marcadas
+      for (let i = 0; i < totalPaginas; i++) {
+        const pagina = paginasInfo[i];
+        if (pagina?.tipo === 'questoes') {
+          const questaoId = pagina.html;
+          const questao = questoesMap[questaoId];
+          if (questao) {
+            const questaoEstadoKey = `@geniusfactory:questao-estado-${blocoId}-${questaoId}`;
+            const questaoMarcadaKey = `@geniusfactory:marcada-${blocoId}-${questaoId}`;
+            const [estadoRaw, marcadaRaw] = await Promise.all([
+              AsyncStorage.getItem(questaoEstadoKey),
+              AsyncStorage.getItem(questaoMarcadaKey),
+            ]);
+            
+            if (estadoRaw || marcadaRaw) {
+              try {
+                if (estadoRaw) {
+                  const estado = JSON.parse(estadoRaw);
+                  if (estado?.feedback?.status === "ok") {
+                    concluidas[i] = true;
+                    temProgressoReal = true;
+                  }
+                } else if (marcadaRaw) {
+                  concluidas[i] = true;
+                  temProgressoReal = true;
+                }
+              } catch (e) {
+                // Ignora erros de parse
+              }
+            }
+          }
+        }
+      }
+  
+      // SEGUNDO: Verificar se há dados salvos no array "done" para páginas de leitura/vídeo
       if (doneRaw) {
         try {
-          const done = JSON.parse(doneRaw)
-          // Verificar cada página que deveria estar concluída
+          const done = JSON.parse(doneRaw);
           for (let i = 0; i < totalPaginas && i < done.length; i++) {
+            if (concluidas[i]) continue;
+            
             if (done[i]) {
-              const pagina = paginasInfo[i]
-              // Se é uma página de questões, verificar se a questão realmente foi respondida
-              if (pagina?.tipo === 'questoes') {
-                const questaoId = pagina.html
-                const questao = questoesMap[questaoId]
-                if (questao) {
-                  // Verificar se há estado salvo indicando que foi respondida
-                  const questaoEstadoKey = `@geniusfactory:questao-estado-${blocoId}-${questaoId}`
-                  const questaoMarcadaKey = `@geniusfactory:marcada-${blocoId}-${questaoId}`
-                  const [estadoRaw, marcadaRaw] = await Promise.all([
-                    AsyncStorage.getItem(questaoEstadoKey),
-                    AsyncStorage.getItem(questaoMarcadaKey),
-                  ])
-                  
-                  // Só marca como concluída se realmente houver estado salvo
-                  if (estadoRaw || marcadaRaw) {
-                    try {
-                      if (estadoRaw) {
-                        const estado = JSON.parse(estadoRaw)
-                        if (estado?.feedback?.status === "ok") {
-                          concluidas[i] = true
-                          temProgressoReal = true
-                        }
-                      } else if (marcadaRaw) {
-                        concluidas[i] = true
-                        temProgressoReal = true
-                      }
-                    } catch (e) {
-                      // Ignora erros de parse
-                    }
-                  }
-                }
-              } else {
-                // Para páginas de leitura/vídeo, NÃO restaurar como concluídas automaticamente
-                // Elas serão marcadas quando o usuário navegar delas na sessão atual
-                // Isso evita problemas de dados residuais de blocos anteriores
-                concluidas[i] = false
+              const pagina = paginasInfo[i];
+              if (pagina?.tipo !== 'questoes') {
+                concluidas[i] = false;
               }
             }
           }
         } catch (e) {
-          console.warn('[restaurarPosicao] Erro ao processar done:', e)
+          console.warn('[restaurarPosicao] Erro ao processar done:', e);
         }
       }
-
+  
       // Só restaura posição se houver evidência de progresso real neste bloco
-      // Caso contrário, sempre começa na página 0
       if (temProgressoReal && posRaw) {
-        const posRawNum = parseInt(posRaw, 10)
+        const posRawNum = parseInt(posRaw, 10);
         if (!isNaN(posRawNum)) {
-          const pos = Math.max(0, Math.min(posRawNum, totalPaginas - 1))
-          setPosicaoRestaurada(pos)
+          const pos = Math.max(0, Math.min(posRawNum, totalPaginas - 1));
+          setPosicaoRestaurada(pos);
         } else {
-          setPosicaoRestaurada(0)
+          setPosicaoRestaurada(0);
         }
       } else {
-        // Sem evidência de progresso, sempre começa na página 0
-        setPosicaoRestaurada(0)
+        setPosicaoRestaurada(0);
       }
-
-      setPaginasConcluidas(concluidas)
+  
+      setPaginasConcluidas(concluidas);
     } catch (error) {
-      console.warn('[restaurarPosicao] Erro:', error)
-      // Em caso de erro, inicializa com array vazio e posição 0
-      setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false))
-      setPosicaoRestaurada(0)
+      console.warn('[restaurarPosicao] Erro:', error);
+      setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false));
+      setPosicaoRestaurada(0);
     }
   }
 
@@ -169,71 +193,90 @@ export function BlocoContainer() {
     }
   }, [posicaoRestaurada, paginas.length])
 
-  // 1. Carregar dados do bloco
-  useEffect(() => {
-    async function carregar() {
-      try {
-        console.log('🔄 Iniciando carregamento do bloco...')
-        console.log('   IDs:', { id, caminhoId, blocoId })
+  // Função de carregamento dos dados do bloco
+  const carregarDados = useCallback(async (silencioso = false) => {
+    if (!id || !caminhoId || !blocoId) {
+      console.error('❌ IDs faltando:', { id, caminhoId, blocoId })
+      return
+    }
+
+    try {
+      console.log('🔄 Iniciando carregamento do bloco...', silencioso ? '(silencioso)' : '')
+      console.log('   IDs:', { id, caminhoId, blocoId })
+      
+      if (!silencioso) {
         setLoading(true)
-        console.log('📡 Chamando obterBloco...')
+      }
+      
+      console.log('📡 Chamando obterBloco...')
 
-        // Busca dados do bloco
-        const dados = await obterBloco(id, caminhoId, blocoId)
-        console.log('✅ Dados recebidos:', dados)
+      // Busca dados do bloco
+      const dados = await obterBloco(id, caminhoId, blocoId)
+      console.log('✅ Dados recebidos:', dados)
 
-        setAtividades(dados.atividades)
-        setCaminho(dados.caminho)
-        setTrilhaNome(dados.trilha?.nome || '')
-        console.log('📝 Atividades:', dados.atividades.length)
+      setAtividades(dados.atividades)
+      setCaminho(dados.caminho)
+      setTrilhaNome(dados.trilha?.nome || '')
+      console.log('📝 Atividades:', dados.atividades.length)
 
+      // Busca questões em lote
+      const todasQuestoesIds = dados.atividades
+        .filter(a => a.tipo === 'questoes')
+        .flatMap(a => a.questaoIds || [])
 
-        // Busca questões em lote
-        const todasQuestoesIds = dados.atividades
-          .filter(a => a.tipo === 'questoes')
-          .flatMap(a => a.questaoIds || [])
+      console.log('❓ Total de questões:', todasQuestoesIds.length)
 
-        console.log('❓ Total de questões:', todasQuestoesIds.length)
+      let questoesMapaFinal: Record<string, any> = {}
+      if (todasQuestoesIds.length > 0) {
+        console.log('📡 Buscando questões...')
+        const questoes = await buscarQuestoesLote(todasQuestoesIds)
+        console.log('✅ Questões recebidas:', questoes.length)
+        questoes.forEach(q => {
+          questoesMapaFinal[q.id] = q
+        })
+        setQuestoesMap(questoesMapaFinal)
+      }
 
-        let questoesMapaFinal: Record<string, any> = {}
-        if (todasQuestoesIds.length > 0) {
-          console.log('📡 Buscando questões...')
-          const questoes = await buscarQuestoesLote(todasQuestoesIds)
-          console.log('✅ Questões recebidas:', questoes.length)
-          questoes.forEach(q => {
-            questoesMapaFinal[q.id] = q
-          })
-          setQuestoesMap(questoesMapaFinal)
-        }
+      // Gera páginas navegáveis
+      console.log('📄 Gerando páginas...')
+      const paginasGeradas = gerarPaginas(dados.atividades)
+      console.log('✅ Páginas geradas:', paginasGeradas.length)
+      setPaginas(paginasGeradas)
 
-        // Gera páginas navegáveis
-        console.log('📄 Gerando páginas...')
-        const paginasGeradas = gerarPaginas(dados.atividades)
-        console.log('✅ Páginas geradas:', paginasGeradas.length)
-        setPaginas(paginasGeradas)
-
-        // Restaura posição do AsyncStorage (agora com verificações individuais)
-        console.log('💾 Restaurando posição...')
-        await restaurarPosicao(blocoId, paginasGeradas.length, paginasGeradas, questoesMapaFinal)
-        console.log('✅ Carregamento concluído!')
-      } catch (error: any) {
-        console.error('❌ ERRO ao carregar bloco:', error)
-        console.error('   Mensagem:', error.message)
-        console.error('   Stack:', error.stack)
+      // Restaura posição do AsyncStorage (agora com verificações individuais)
+      console.log('💾 Restaurando posição...')
+      await restaurarPosicao(blocoId, paginasGeradas.length, paginasGeradas, questoesMapaFinal)
+      console.log('✅ Carregamento concluído!')
+    } catch (error: any) {
+      console.error('❌ ERRO ao carregar bloco:', error)
+      console.error('   Mensagem:', error.message)
+      console.error('   Stack:', error.stack)
+      if (!silencioso) {
         Alert.alert('Erro', error.message || 'Não foi possível carregar o bloco')
         router.back()
-      } finally {
+      }
+    } finally {
+      if (!silencioso) {
         setLoading(false)
       }
     }
-
-    if (id && caminhoId && blocoId) {
-      console.log('✅ Todos os IDs presentes, iniciando carregamento...')
-      carregar()
-    } else {
-      console.error('❌ IDs faltando:', { id, caminhoId, blocoId })
-    }
   }, [id, caminhoId, blocoId, router])
+
+  // 1. Carregar dados do bloco (carregamento inicial)
+  useEffect(() => {
+    carregarDados(false)
+    initialLoadedRef.current = true
+  }, [carregarDados])
+
+  // Recarregar dados quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        console.log('👁️ BlocoContainer ganhou foco - recarregando dados...')
+        carregarDados(true)
+      }
+    }, [carregarDados])
+  )
 
   // 3. Persistir posição no AsyncStorage
   useEffect(() => {
@@ -251,6 +294,55 @@ export function BlocoContainer() {
     AsyncStorage.setItem(doneKey, JSON.stringify(paginasConcluidas))
   }, [paginasConcluidas, blocoId])
 
+  // 4.1. Persistir páginas com erro
+  useEffect(() => {
+    if (!blocoId) return
+
+    const erroKey = `@geniusfactory:erro-bloco-${blocoId}`
+    AsyncStorage.setItem(erroKey, JSON.stringify(paginasComErro))
+  }, [paginasComErro, blocoId])
+
+  // 4.2. Verificar questões erradas no AsyncStorage
+  useEffect(() => {
+    if (!blocoId || paginas.length === 0) return
+
+    const verificarErros = async () => {
+      // Sempre recalcula verificando todas as questões para garantir que está atualizado
+      // Isso é necessário porque quando uma questão é respondida, o estado pode mudar
+      const erros: number[] = []
+      
+      for (let i = 0; i < paginas.length; i++) {
+        const pagina = paginas[i]
+        if (pagina.tipo === 'questoes') {
+          const questaoId = pagina.html
+          const estadoKey = `@geniusfactory:questao-estado-${blocoId}-${questaoId}`
+          
+          try {
+            const estadoRaw = await AsyncStorage.getItem(estadoKey)
+            if (estadoRaw) {
+              const estado = JSON.parse(estadoRaw)
+              // Se o feedback indica que foi errada (acertou === false)
+              if (estado.feedback?.status === 'ok' && estado.feedback.acertou === false) {
+                erros.push(i)
+              }
+            }
+          } catch (error) {
+            // Ignora erros de parsing
+          }
+        }
+      }
+      
+      setPaginasComErro(erros)
+    }
+
+    // Adiciona um pequeno delay para garantir que o AsyncStorage foi atualizado
+    const timeoutId = setTimeout(() => {
+      verificarErros()
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [blocoId, paginas, paginasConcluidas])
+
   // 5. Marcar página como concluída
   const marcarConcluida = useCallback((index: number) => {
     setPaginasConcluidas(prev => {
@@ -259,7 +351,37 @@ export function BlocoContainer() {
       next[index] = true
       return next
     })
-  }, [])
+    
+    // Verifica se a página tem erro após marcar como concluída
+    // Isso garante que o círculo seja atualizado imediatamente
+    const verificarErroPagina = async () => {
+      if (index < paginas.length) {
+        const pagina = paginas[index]
+        if (pagina.tipo === 'questoes') {
+          const questaoId = pagina.html
+          const estadoKey = `@geniusfactory:questao-estado-${blocoId}-${questaoId}`
+          
+          try {
+            const estadoRaw = await AsyncStorage.getItem(estadoKey)
+            if (estadoRaw) {
+              const estado = JSON.parse(estadoRaw)
+              if (estado.feedback?.status === 'ok' && estado.feedback.acertou === false) {
+                setPaginasComErro(prev => {
+                  if (prev.includes(index)) return prev
+                  return [...prev, index]
+                })
+              }
+            }
+          } catch (error) {
+            // Ignora erros
+          }
+        }
+      }
+    }
+    
+    // Aguarda um pouco para garantir que o AsyncStorage foi atualizado
+    setTimeout(verificarErroPagina, 200)
+  }, [blocoId, paginas])
 
   // 6. Rastrear última página visitada e fazer scroll para o topo ao mudar de página
   useEffect(() => {
@@ -309,6 +431,9 @@ export function BlocoContainer() {
       setEncerrando(true)
 
       const data = await concluirBloco(blocoId)
+
+      // Remove a flag de "refazer" se existir, pois o bloco foi concluído novamente
+      await AsyncStorage.removeItem(`@geniusfactory:refazer-bloco-${blocoId}`)
 
       // Invalida o cache do caminho para garantir dados atualizados
       await invalidarCacheCaminho(id, caminhoId)
@@ -370,7 +495,7 @@ export function BlocoContainer() {
       {/* Header com título e botão voltar */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -392,6 +517,7 @@ export function BlocoContainer() {
           totalPaginas={paginas.length}
           paginaAtual={paginaAtual}
           paginasConcluidas={paginasConcluidas}
+          paginasComErro={paginasComErro}
           onIrParaPagina={setPaginaAtual}
         />
 
@@ -457,6 +583,8 @@ export function BlocoContainer() {
         conquistas={conquistasDesbloqueadas}
         onClose={async () => {
           setModalConquistaAberto(false)
+          // Remove a flag de "refazer" se existir, pois o bloco foi concluído novamente
+          await AsyncStorage.removeItem(`@geniusfactory:refazer-bloco-${blocoId}`)
           await limparPersistencia(blocoId)
           // Cache já foi invalidado no handleEncerrar
           router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)

@@ -40,14 +40,26 @@ export default function LigarColunasAluno({
     return hasLongText;
   }, [ligarColunas]);
 
+  // Atualiza colunaA sempre que ligarColunas mudar
+  // Isso garante que os números não desapareçam após a correção
   useEffect(() => {
-    setColunaA(ligarColunas);
+    if (ligarColunas && ligarColunas.length > 0) {
+      setColunaA(ligarColunas);
+    }
+  }, [ligarColunas]);
 
+  useEffect(() => {
     // 1) Reconstrói/recupera a coluna B mantendo a ordem embaralhada salva se existir
+    if (!ligarColunas || ligarColunas.length === 0) return;
+    
     let embaralhadoB: ItemLigarColunas[] = [];
-    if (respostasAluno['_colunaB']) {
+    if (respostasAluno && respostasAluno['_colunaB']) {
       try {
         embaralhadoB = JSON.parse(respostasAluno['_colunaB']);
+        // Valida se o tamanho está correto
+        if (embaralhadoB.length !== ligarColunas.length) {
+          embaralhadoB = [...ligarColunas].sort(() => Math.random() - 0.5);
+        }
       } catch {
         embaralhadoB = [...ligarColunas].sort(() => Math.random() - 0.5);
       }
@@ -67,7 +79,7 @@ export default function LigarColunasAluno({
       respostasIniciais['_colunaB'] = JSON.stringify(embaralhadoB);
       setRespostasAluno(respostasIniciais);
     }
-  }, [ligarColunas]);
+  }, [ligarColunas, respostasAluno, setRespostasAluno]);
 
   const handleInputChange = (indexB: number, valor: string) => {
     if (respondido) return;
@@ -108,6 +120,7 @@ export default function LigarColunasAluno({
                   <Text style={styles.parentese}>(</Text>
                   <View style={styles.inputBox}>
                     <TextInput
+                      key={`input-v-${j}-${respondido}`}
                       value={valorCampo}
                       onChangeText={(texto) => handleInputChange(j, texto)}
                       keyboardType="numeric"
@@ -183,6 +196,7 @@ export default function LigarColunasAluno({
                 <Text style={styles.parentese}>(</Text>
                 <View style={styles.inputBox}>
                   <TextInput
+                    key={`input-h-${j}-${respondido}`}
                     value={valorCampo}
                     onChangeText={(texto) => handleInputChange(j, texto)}
                     keyboardType="numeric"

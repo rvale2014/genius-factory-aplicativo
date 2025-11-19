@@ -135,6 +135,13 @@ export default function AppLayout() {
           tabBarItemStyle: { display: 'none' },
         }}
       />
+      <Tabs.Screen
+        name="trilhas/[id]/caminhos/[caminhoId]/blocos/[blocoId]"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }

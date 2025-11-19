@@ -1,7 +1,7 @@
 // components/blocos/leitura/PaginaLeitura.tsx
 
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import RenderHTML from 'react-native-render-html';
 
 type Props = {
@@ -73,13 +73,6 @@ export function PaginaLeitura({
           tagsStyles={tagsStyles}
           systemFonts={systemFonts}
         />
-      </View>
-
-      {/* Footer com instruções */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          💡 Dica: Você pode selecionar o texto para copiar
-        </Text>
       </View>
     </View>
   )

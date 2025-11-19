@@ -80,7 +80,7 @@ export function PaginaRenderer({
 
     return (
       <QuestaoCardBloco
-        key={`questao-${questao.id}`}
+        key={`questao-${questao.id}-${pagina.atividadeIndex}-${pagina.paginaInterna}`}
         questao={questao}
         blocoId={blocoId}
         trilhaId={trilhaId}

@@ -37,36 +37,36 @@ export function BarraNavegacaoPaginas({
               {isAtual && (
                 <View style={styles.anelExterno} />
               )}
-              <TouchableOpacity
-                onPress={() => onIrParaPagina(index)}
-                style={[
-                  styles.circulo,
-                  isErro && styles.circuloErro,
+            <TouchableOpacity
+              onPress={() => onIrParaPagina(index)}
+              style={[
+                styles.circulo,
+                isErro && styles.circuloErro,
                   (isConcluida || isAtual) && !isErro && styles.circuloConcluido,
-                  isAtual && styles.circuloAtual,
-                ]}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.circuloTexto,
+                isAtual && styles.circuloAtual,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.circuloTexto,
                     // Se está concluída, tem erro ou é atual, texto branco
                     (isConcluida || isErro || isAtual) && styles.circuloTextoBranco,
-                  ]}
-                >
-                  {index + 1}
-                </Text>
-                {isConcluida && !isErro && (
-                  <View style={styles.iconWrapper}>
-                    <Ionicons name="checkmark-circle" size={14} color="#30C58E" />
-                  </View>
-                )}
-                {isErro && (
-                  <View style={styles.iconWrapper}>
-                    <Ionicons name="close-circle" size={14} color="#FFFFFF" />
-                  </View>
-                )}
-              </TouchableOpacity>
+                ]}
+              >
+                {index + 1}
+              </Text>
+              {isConcluida && !isErro && (
+                <View style={styles.iconWrapper}>
+                  <Ionicons name="checkmark-circle" size={14} color="#30C58E" />
+                </View>
+              )}
+              {isErro && (
+                <View style={styles.iconWrapper}>
+                  <Ionicons name="close-circle" size={14} color="#FF5FDB" />
+                </View>
+              )}
+            </TouchableOpacity>
             </View>
           )
         })}
@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
     borderColor: '#7C3AED',
   },
   circuloErro: {
-    backgroundColor: '#EF4444',
-    borderColor: '#DC2626',
+    backgroundColor: '#FF5FDB',
+    borderColor: '#FF5FDB',
   },
   circuloAtual: {
     borderColor: '#9333EA', // Borda roxa mais escura para contraste
