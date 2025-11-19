@@ -1,6 +1,6 @@
 // components/blocos/leitura/PaginaLeitura.tsx
 
-import React, { useMemo } from 'react'; // ← Adicionar useMemo
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import RenderHTML from 'react-native-render-html';
 
@@ -18,6 +18,12 @@ export function PaginaLeitura({
   onMarcarConcluida,
 }: Props) {
   const { width } = useWindowDimensions()
+  
+  // Marca como concluída quando a página é visualizada
+  // Reset quando htmlFragmento ou atividadeId mudar (nova página)
+  useEffect(() => {
+    onMarcarConcluida()
+  }, [htmlFragmento, atividadeId, onMarcarConcluida])
   
   // ✅ SOLUÇÃO 1: Memoizar contentWidth
   const contentWidth = useMemo(() => {

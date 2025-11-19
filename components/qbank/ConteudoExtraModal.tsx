@@ -69,7 +69,6 @@ const ConteudoExtraModal = forwardRef<ConteudoExtraModalRef, Props>(
       ref,
       () => ({
         open: (aba?: Aba) => {
-          console.log('[ConteudoExtraModal] open', { questaoId, aba });
           if (aba) {
             setAbaAtiva(aba);
           }

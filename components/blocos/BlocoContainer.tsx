@@ -3,7 +3,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { buscarQuestoesLote, concluirBloco, obterBloco } from '../../src/services/blocoService'
+import { invalidarCacheCaminho } from '../../src/services/caminhoService'
 import { BarraNavegacaoPaginas } from './BarraNavegacaoPaginas'
 import { ModalConquistas } from './ModalConquistas'
 import { PaginaRenderer } from './PaginaRenderer'
@@ -33,6 +34,9 @@ export function BlocoContainer() {
     blocoId: string
   }>()
   const router = useRouter()
+
+  console.log('📦 BlocoContainer montado!')
+  console.log('   Parâmetros recebidos:', { id, caminhoId, blocoId })
 
   // Estados principais
   const [loading, setLoading] = useState(true)
@@ -55,55 +59,14 @@ export function BlocoContainer() {
 
   // Referência para rastrear última página (detectar direção da navegação)
   const [ultimaPaginaVisitada, setUltimaPaginaVisitada] = useState<number | null>(null)
-
-  // 1. Carregar dados do bloco
-  useEffect(() => {
-    async function carregar() {
-      try {
-        setLoading(true)
-
-        // Busca dados do bloco
-        const dados = await obterBloco(id, caminhoId, blocoId)
-
-        setAtividades(dados.atividades)
-        setCaminho(dados.caminho)
-        setTrilhaNome(dados.trilha?.nome || '')
-
-        // Busca questões em lote
-        const todasQuestoesIds = dados.atividades
-          .filter(a => a.tipo === 'questoes')
-          .flatMap(a => a.questaoIds || [])
-
-        if (todasQuestoesIds.length > 0) {
-          const questoes = await buscarQuestoesLote(todasQuestoesIds)
-          const mapa: Record<string, any> = {}
-          questoes.forEach(q => {
-            mapa[q.id] = q
-          })
-          setQuestoesMap(mapa)
-        }
-
-        // Gera páginas navegáveis
-        const paginasGeradas = gerarPaginas(dados.atividades)
-        setPaginas(paginasGeradas)
-
-        // Restaura posição do AsyncStorage
-        await restaurarPosicao(blocoId, paginasGeradas.length)
-      } catch (error: any) {
-        Alert.alert('Erro', error.message || 'Não foi possível carregar o bloco')
-        router.back()
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (id && caminhoId && blocoId) {
-      carregar()
-    }
-  }, [id, caminhoId, blocoId, router])
+  
+  // Ref para o ScrollView (para controlar scroll ao topo)
+  const scrollViewRef = useRef<ScrollView>(null)
 
   // 2. Restaurar posição do AsyncStorage
-  async function restaurarPosicao(blocoId: string, totalPaginas: number) {
+  const [posicaoRestaurada, setPosicaoRestaurada] = useState<number | null>(null)
+  
+  async function restaurarPosicao(blocoId: string, totalPaginas: number, paginasInfo: PaginaInfo[], questoesMap: Record<string, any>) {
     try {
       const posKey = `@geniusfactory:pos-bloco-${blocoId}`
       const doneKey = `@geniusfactory:done-bloco-${blocoId}`
@@ -113,21 +76,164 @@ export function BlocoContainer() {
         AsyncStorage.getItem(doneKey),
       ])
 
-      const pos = posRaw ? parseInt(posRaw, 10) : 0
-      const done = doneRaw ? JSON.parse(doneRaw) : []
+      // Inicializar paginasConcluidas como array vazio primeiro
+      const concluidas = Array.from({ length: totalPaginas }, () => false)
+      
+      // Verificar se há evidência de progresso REAL neste bloco
+      let temProgressoReal = false
 
-      if (pos >= 0 && pos < totalPaginas) {
-        setPaginaAtual(pos)
-        setUltimaPaginaVisitada(pos)
+      // Verificar se há dados salvos para este bloco específico
+      // E verificar individualmente cada página que tem questão para garantir que foi realmente respondida
+      if (doneRaw) {
+        try {
+          const done = JSON.parse(doneRaw)
+          // Verificar cada página que deveria estar concluída
+          for (let i = 0; i < totalPaginas && i < done.length; i++) {
+            if (done[i]) {
+              const pagina = paginasInfo[i]
+              // Se é uma página de questões, verificar se a questão realmente foi respondida
+              if (pagina?.tipo === 'questoes') {
+                const questaoId = pagina.html
+                const questao = questoesMap[questaoId]
+                if (questao) {
+                  // Verificar se há estado salvo indicando que foi respondida
+                  const questaoEstadoKey = `@geniusfactory:questao-estado-${blocoId}-${questaoId}`
+                  const questaoMarcadaKey = `@geniusfactory:marcada-${blocoId}-${questaoId}`
+                  const [estadoRaw, marcadaRaw] = await Promise.all([
+                    AsyncStorage.getItem(questaoEstadoKey),
+                    AsyncStorage.getItem(questaoMarcadaKey),
+                  ])
+                  
+                  // Só marca como concluída se realmente houver estado salvo
+                  if (estadoRaw || marcadaRaw) {
+                    try {
+                      if (estadoRaw) {
+                        const estado = JSON.parse(estadoRaw)
+                        if (estado?.feedback?.status === "ok") {
+                          concluidas[i] = true
+                          temProgressoReal = true
+                        }
+                      } else if (marcadaRaw) {
+                        concluidas[i] = true
+                        temProgressoReal = true
+                      }
+                    } catch (e) {
+                      // Ignora erros de parse
+                    }
+                  }
+                }
+              } else {
+                // Para páginas de leitura/vídeo, NÃO restaurar como concluídas automaticamente
+                // Elas serão marcadas quando o usuário navegar delas na sessão atual
+                // Isso evita problemas de dados residuais de blocos anteriores
+                concluidas[i] = false
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[restaurarPosicao] Erro ao processar done:', e)
+        }
       }
 
-      setPaginasConcluidas(
-        Array.from({ length: totalPaginas }, (_, i) => Boolean(done[i]))
-      )
+      // Só restaura posição se houver evidência de progresso real neste bloco
+      // Caso contrário, sempre começa na página 0
+      if (temProgressoReal && posRaw) {
+        const posRawNum = parseInt(posRaw, 10)
+        if (!isNaN(posRawNum)) {
+          const pos = Math.max(0, Math.min(posRawNum, totalPaginas - 1))
+          setPosicaoRestaurada(pos)
+        } else {
+          setPosicaoRestaurada(0)
+        }
+      } else {
+        // Sem evidência de progresso, sempre começa na página 0
+        setPosicaoRestaurada(0)
+      }
+
+      setPaginasConcluidas(concluidas)
     } catch (error) {
       console.warn('[restaurarPosicao] Erro:', error)
+      // Em caso de erro, inicializa com array vazio e posição 0
+      setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false))
+      setPosicaoRestaurada(0)
     }
   }
+
+  // Aplicar posição restaurada quando paginas estiver pronto
+  useEffect(() => {
+    if (posicaoRestaurada !== null && paginas.length > 0) {
+      const posValida = Math.max(0, Math.min(posicaoRestaurada, paginas.length - 1))
+      setPaginaAtual(posValida)
+      setUltimaPaginaVisitada(posValida)
+      setPosicaoRestaurada(null) // Reset para evitar re-aplicar
+    }
+  }, [posicaoRestaurada, paginas.length])
+
+  // 1. Carregar dados do bloco
+  useEffect(() => {
+    async function carregar() {
+      try {
+        console.log('🔄 Iniciando carregamento do bloco...')
+        console.log('   IDs:', { id, caminhoId, blocoId })
+        setLoading(true)
+        console.log('📡 Chamando obterBloco...')
+
+        // Busca dados do bloco
+        const dados = await obterBloco(id, caminhoId, blocoId)
+        console.log('✅ Dados recebidos:', dados)
+
+        setAtividades(dados.atividades)
+        setCaminho(dados.caminho)
+        setTrilhaNome(dados.trilha?.nome || '')
+        console.log('📝 Atividades:', dados.atividades.length)
+
+
+        // Busca questões em lote
+        const todasQuestoesIds = dados.atividades
+          .filter(a => a.tipo === 'questoes')
+          .flatMap(a => a.questaoIds || [])
+
+        console.log('❓ Total de questões:', todasQuestoesIds.length)
+
+        let questoesMapaFinal: Record<string, any> = {}
+        if (todasQuestoesIds.length > 0) {
+          console.log('📡 Buscando questões...')
+          const questoes = await buscarQuestoesLote(todasQuestoesIds)
+          console.log('✅ Questões recebidas:', questoes.length)
+          questoes.forEach(q => {
+            questoesMapaFinal[q.id] = q
+          })
+          setQuestoesMap(questoesMapaFinal)
+        }
+
+        // Gera páginas navegáveis
+        console.log('📄 Gerando páginas...')
+        const paginasGeradas = gerarPaginas(dados.atividades)
+        console.log('✅ Páginas geradas:', paginasGeradas.length)
+        setPaginas(paginasGeradas)
+
+        // Restaura posição do AsyncStorage (agora com verificações individuais)
+        console.log('💾 Restaurando posição...')
+        await restaurarPosicao(blocoId, paginasGeradas.length, paginasGeradas, questoesMapaFinal)
+        console.log('✅ Carregamento concluído!')
+      } catch (error: any) {
+        console.error('❌ ERRO ao carregar bloco:', error)
+        console.error('   Mensagem:', error.message)
+        console.error('   Stack:', error.stack)
+        Alert.alert('Erro', error.message || 'Não foi possível carregar o bloco')
+        router.back()
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (id && caminhoId && blocoId) {
+      console.log('✅ Todos os IDs presentes, iniciando carregamento...')
+      carregar()
+    } else {
+      console.error('❌ IDs faltando:', { id, caminhoId, blocoId })
+    }
+  }, [id, caminhoId, blocoId, router])
 
   // 3. Persistir posição no AsyncStorage
   useEffect(() => {
@@ -155,23 +261,20 @@ export function BlocoContainer() {
     })
   }, [])
 
-  // 6. Auto-marcar leitura/vídeo como concluída ao avançar
+  // 6. Rastrear última página visitada e fazer scroll para o topo ao mudar de página
   useEffect(() => {
     if (ultimaPaginaVisitada === null) {
       setUltimaPaginaVisitada(paginaAtual)
-      return
+    } else {
+      setUltimaPaginaVisitada(paginaAtual)
+      // Faz scroll para o topo quando a página muda
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true })
     }
-
-    // Se avançou (novo índice > anterior)
-    if (paginaAtual > ultimaPaginaVisitada) {
-      const paginaAnterior = paginas[ultimaPaginaVisitada]
-      if (paginaAnterior && (paginaAnterior.tipo === 'leitura' || paginaAnterior.tipo === 'video')) {
-        marcarConcluida(ultimaPaginaVisitada)
-      }
-    }
-
-    setUltimaPaginaVisitada(paginaAtual)
-  }, [paginaAtual, paginas, ultimaPaginaVisitada, marcarConcluida])
+  }, [paginaAtual, ultimaPaginaVisitada])
+  
+  // Nota: Leitura e vídeo agora marcam automaticamente:
+  // - Leitura: marca quando é visualizada (PaginaLeitura.tsx)
+  // - Vídeo: marca quando termina (PaginaVideo.tsx)
 
   // 7. Navegação
   const avancar = useCallback(() => {
@@ -207,13 +310,16 @@ export function BlocoContainer() {
 
       const data = await concluirBloco(blocoId)
 
+      // Invalida o cache do caminho para garantir dados atualizados
+      await invalidarCacheCaminho(id, caminhoId)
+      
       if (data.novasConquistas?.length > 0) {
         setConquistasDesbloqueadas(data.novasConquistas)
         setModalConquistaAberto(true)
       } else {
         // Navega direto para o caminho
         await limparPersistencia(blocoId)
-        router.push(`/trilhas/${id}/caminhos/${caminhoId}`)
+        router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)
       }
     } catch (error: any) {
       Alert.alert('Erro', error.message || 'Não foi possível encerrar o bloco')
@@ -222,8 +328,18 @@ export function BlocoContainer() {
     }
   }, [podeEncerrar, blocoId, id, caminhoId, router])
 
-  // Loading state
-  if (loading) {
+  // 10. Garantir que paginaAtual seja válida e sincronizar se necessário
+  useEffect(() => {
+    if (paginas.length > 0) {
+      const paginaAtualValida = Math.max(0, Math.min(paginaAtual, paginas.length - 1))
+      if (paginaAtual !== paginaAtualValida) {
+        setPaginaAtual(paginaAtualValida)
+      }
+    }
+  }, [paginas.length, paginaAtual])
+
+  // Loading state - aguarda dados estarem prontos
+  if (loading || paginas.length === 0 || atividades.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -234,7 +350,9 @@ export function BlocoContainer() {
     )
   }
 
-  const paginaInfo = paginas[paginaAtual]
+  // Garantir que paginaAtual seja válida para renderização
+  const paginaAtualValida = Math.max(0, Math.min(paginaAtual, paginas.length - 1))
+  const paginaInfo = paginas[paginaAtualValida]
   const atividade = atividades[paginaInfo?.atividadeIndex]
 
   if (!paginaInfo || !atividade) {
@@ -265,6 +383,7 @@ export function BlocoContainer() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -284,7 +403,7 @@ export function BlocoContainer() {
           blocoId={blocoId}
           trilhaId={id}
           caminhoId={caminhoId}
-          onMarcarConcluida={() => marcarConcluida(paginaAtual)}
+          onMarcarConcluida={() => marcarConcluida(paginaAtualValida)}
         />
 
         {/* Botões de navegação */}
@@ -339,7 +458,8 @@ export function BlocoContainer() {
         onClose={async () => {
           setModalConquistaAberto(false)
           await limparPersistencia(blocoId)
-          router.push(`/trilhas/${id}/caminhos/${caminhoId}`)
+          // Cache já foi invalidado no handleEncerrar
+          router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)
         }}
       />
     </SafeAreaView>

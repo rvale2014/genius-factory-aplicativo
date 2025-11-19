@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -49,7 +49,24 @@ export default function CaminhoScreen() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [modalCaminhosVisible, setModalCaminhosVisible] = useState(false);
+  const initialLoadedRef = useRef(false);
 
+  // Função de recarregamento silencioso (sem mostrar loading)
+  const recarregarSilencioso = useCallback(async () => {
+    if (!trilhaId || !caminhoId) return;
+    try {
+      setErro(null);
+      // Força busca de dados novos (ignora cache se necessário)
+      // Como o cache já foi invalidado antes de navegar de volta, isso garante dados atualizados
+      const dados = await obterCaminho(trilhaId, caminhoId);
+      setData(dados);
+    } catch (e: any) {
+      // Erro silencioso - não mostra mensagem para não interromper a experiência
+      console.error('Erro ao recarregar caminho:', e);
+    }
+  }, [trilhaId, caminhoId]);
+
+  // Carregamento inicial
   useEffect(() => {
     async function carregarCaminho() {
       try {
@@ -57,6 +74,7 @@ export default function CaminhoScreen() {
         setErro(null);
         const dados = await obterCaminho(trilhaId, caminhoId);
         setData(dados);
+        initialLoadedRef.current = true;
       } catch (e: any) {
         console.error('Erro ao carregar caminho:', e);
         setErro('Não foi possível carregar os dados do caminho. Tente novamente.');
@@ -70,6 +88,17 @@ export default function CaminhoScreen() {
     }
   }, [trilhaId, caminhoId]);
 
+  // Recarregar quando a tela ganha foco (silenciosamente)
+  useFocusEffect(
+    useCallback(() => {
+      if (initialLoadedRef.current) {
+        // O cache já foi invalidado antes de navegar de volta do bloco
+        // Isso garante que dados atualizados sejam buscados
+        recarregarSilencioso();
+      }
+    }, [recarregarSilencioso])
+  );
+
   const handleSelecionarCaminho = (novoCaminhoId: string) => {
     setModalCaminhosVisible(false);
     if (novoCaminhoId !== caminhoId) {
@@ -78,7 +107,13 @@ export default function CaminhoScreen() {
   };
 
   const handlePressBloco = (blocoId: string) => {
-    router.push(`/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`)
+    const url = `/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`
+    console.log('🔍 DEBUG NAVEGAÇÃO:')
+    console.log('   trilhaId:', trilhaId)
+    console.log('   caminhoId:', caminhoId)
+    console.log('   blocoId:', blocoId)
+    console.log('   URL final:', url)
+    router.push(url)
   };
 
   if (loading) {

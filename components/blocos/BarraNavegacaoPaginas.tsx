@@ -32,37 +32,42 @@ export function BarraNavegacaoPaginas({
           const isErro = paginasComErro.includes(index)
 
           return (
-            <TouchableOpacity
-              key={index}
-              onPress={() => onIrParaPagina(index)}
-              style={[
-                styles.circulo,
-                isErro && styles.circuloErro,
-                isConcluida && !isErro && styles.circuloConcluido,
-                isAtual && styles.circuloAtual,
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text
+            <View key={index} style={styles.circuloWrapper}>
+              {/* Anel externo para efeito glow quando está selecionado */}
+              {isAtual && (
+                <View style={styles.anelExterno} />
+              )}
+              <TouchableOpacity
+                onPress={() => onIrParaPagina(index)}
                 style={[
-                  styles.circuloTexto,
-                  (isConcluida || isErro) && styles.circuloTextoBranco,
-                  isAtual && styles.circuloTextoAtual,
+                  styles.circulo,
+                  isErro && styles.circuloErro,
+                  (isConcluida || isAtual) && !isErro && styles.circuloConcluido,
+                  isAtual && styles.circuloAtual,
                 ]}
+                activeOpacity={0.7}
               >
-                {index + 1}
-              </Text>
-              {isConcluida && !isErro && (
-                <View style={styles.iconWrapper}>
-                  <Ionicons name="checkmark-circle" size={14} color="#30C58E" />
-                </View>
-              )}
-              {isErro && (
-                <View style={styles.iconWrapper}>
-                  <Ionicons name="close-circle" size={14} color="#FFFFFF" />
-                </View>
-              )}
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.circuloTexto,
+                    // Se está concluída, tem erro ou é atual, texto branco
+                    (isConcluida || isErro || isAtual) && styles.circuloTextoBranco,
+                  ]}
+                >
+                  {index + 1}
+                </Text>
+                {isConcluida && !isErro && (
+                  <View style={styles.iconWrapper}>
+                    <Ionicons name="checkmark-circle" size={14} color="#30C58E" />
+                  </View>
+                )}
+                {isErro && (
+                  <View style={styles.iconWrapper}>
+                    <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           )
         })}
       </ScrollView>
@@ -79,6 +84,20 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
+  circuloWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  anelExterno: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#C084FC', // Roxo mais claro para o anel externo
+    opacity: 0.4,
+    zIndex: 0,
+  },
   circulo: {
     width: 36,
     height: 36,
@@ -89,23 +108,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    zIndex: 1,
   },
   circuloConcluido: {
-    backgroundColor: '#A855F7',
-    borderColor: '#9333EA',
+    backgroundColor: '#7C3AED', // Roxo vibrante
+    borderColor: '#7C3AED',
   },
   circuloErro: {
     backgroundColor: '#EF4444',
     borderColor: '#DC2626',
   },
   circuloAtual: {
-    borderColor: '#7C3AED',
-    borderWidth: 3,
+    borderColor: '#9333EA', // Borda roxa mais escura para contraste
+    borderWidth: 2,
     shadowColor: '#7C3AED',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
   circuloTexto: {
     fontSize: 14,
@@ -115,9 +135,6 @@ const styles = StyleSheet.create({
   },
   circuloTextoBranco: {
     color: '#FFFFFF',
-  },
-  circuloTextoAtual: {
-    color: '#7C3AED',
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
   },

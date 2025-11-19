@@ -11,11 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import Animated, {
-  BounceIn,
-  FadeIn,
-  FadeOut
-} from 'react-native-reanimated'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -59,15 +54,8 @@ export function ModalConquistas({ visible, conquistas, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <Animated.View
-          entering={FadeIn.duration(300)}
-          exiting={FadeOut.duration(200)}
-          style={styles.backdrop}
-        >
-          <Animated.View
-            entering={BounceIn.delay(200)}
-            style={styles.container}
-          >
+        <View style={styles.backdrop}>
+          <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerBadge}>
@@ -124,8 +112,8 @@ export function ModalConquistas({ visible, conquistas, onClose }: Props) {
                 color="#FFFFFF"
               />
             </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
+          </View>
+        </View>
       </View>
     </Modal>
   )

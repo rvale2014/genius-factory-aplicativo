@@ -59,9 +59,10 @@ export type QuestaoCardData = {
 
 type Props = {
   questao: QuestaoCardData;
+  onRespondido?: (questaoId: string) => void;
 };
 
-export function QuestaoCard({ questao }: Props) {
+export function QuestaoCard({ questao, onRespondido }: Props) {
   const { width } = useWindowDimensions();
   const conteudoExtraRef = useRef<ConteudoExtraModalRef | null>(null);
   const cardRef = useRef<View>(null); // ✅ NOVA LINHA
@@ -140,13 +141,6 @@ export function QuestaoCard({ questao }: Props) {
 
   // Função para abrir conteúdo extra em modal
   const abrirConteudoExtra = useCallback((aba?: 'dica' | 'texto' | 'forum' | 'estatisticas') => {
-    console.log("[QuestaoCard] abrirConteudoExtra acionado", {
-      questaoId: questao.id,
-      aba,
-      temDica,
-      temComentarios,
-      temConteudoExtra,
-    });
     conteudoExtraRef.current?.open(aba);
   }, [temComentarios, temConteudoExtra, temDica, questao.id]);
 
@@ -589,6 +583,12 @@ export function QuestaoCard({ questao }: Props) {
         const result = await corrigirColorirFigura(questao.id, respostasColorir.partesMarcadas ?? []);
         setFeedback({ status: "ok", acertou: !!result?.acertou });
       }
+
+      // Chama callback se fornecido (apenas quando resposta foi processada com sucesso)
+      // Todos os casos acima resultam em setFeedback({ status: "ok" }), então se chegou aqui sem erro, foi respondido
+      if (onRespondido) {
+        onRespondido(questao.id);
+      }
     } catch (error) {
       setFeedback({ status: "erro", msg: "Não foi possível corrigir agora. Tente novamente." });
     } finally {
@@ -650,11 +650,6 @@ return (
               ]}
               disabled={!(temConteudoExtra || temDica)}
               onPress={() => {
-                console.log("[QuestaoCard] Ícone comentários tocado", {
-                  questaoId: questao.id,
-                  temConteudoExtra,
-                  temDica,
-                });
                 if (temConteudoExtra) {
                   abrirConteudoExtra("texto");
                 } else if (temDica) {

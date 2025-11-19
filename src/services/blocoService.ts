@@ -51,10 +51,20 @@ export async function obterBloco(
   blocoId: string
 ): Promise<BlocoResponse> {
   try {
+    console.log('🌐 blocoService.obterBloco chamado')
+    console.log('   URL:', `/mobile/v1/blocos/${blocoId}`)
+    
     const response = await api.get(`/mobile/v1/blocos/${blocoId}`)
+    
+    console.log('✅ Response status:', response.status)
+    console.log('✅ Response data:', response.data)
+    
     return response.data
   } catch (error: any) {
-    console.error('[obterBloco] Erro:', error)
+    console.error('❌ Erro em obterBloco:', error)
+    console.error('   Response:', error?.response?.data)
+    console.error('   Status:', error?.response?.status)
+    
     throw new Error(
       error?.response?.data?.error || 'Erro ao carregar dados do bloco'
     )

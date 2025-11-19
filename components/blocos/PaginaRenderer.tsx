@@ -45,6 +45,7 @@ export function PaginaRenderer({
   if (pagina.tipo === 'leitura' && atividade.conteudoTexto) {
     return (
       <PaginaLeitura
+        key={`leitura-${pagina.html}-${atividade.id}`}
         htmlFragmento={pagina.html}
         atividadeId={atividade.id}
         atividadeTitulo={atividade.titulo}
@@ -79,6 +80,7 @@ export function PaginaRenderer({
 
     return (
       <QuestaoCardBloco
+        key={`questao-${questao.id}`}
         questao={questao}
         blocoId={blocoId}
         trilhaId={trilhaId}
