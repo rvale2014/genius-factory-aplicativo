@@ -1,9 +1,9 @@
 // components/simuladoTrilha/PaginaSimulado.tsx
 import { api } from '@/src/lib/api'; // ✅ CORRIGIDO
-import { Ionicons } from '@expo/vector-icons'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useRouter } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native'
+} from 'react-native';
 
 type SimuladoMeta = {
   id: string
@@ -81,25 +81,36 @@ export function PaginaSimulado({
     try {
       setIniciando(true)
 
-      // ✅ Usa api.post (token JWT automático)
+      // Inicia o simulado (idempotente - se já iniciado, retorna o mesmo ID)
       const { data } = await api.post<{ simuladoId: string; message: string }>(
         `/mobile/v1/trilhas/${trilhaId}/simulados/${atividadeId}/iniciar`
       )
 
       const { simuladoId } = data
 
-      // Salva contexto da trilha no AsyncStorage
+      // ✅ SEMPRE salva/atualiza o contexto (mesmo se for retomada)
+      const contexto = {
+        trilhaId,
+        caminhoId,
+        blocoId,
+        atividadeId,
+      }
+      
+      console.log('[PaginaSimulado] Salvando contexto:', {
+        simuladoId,
+        contexto,
+      })
+
       await AsyncStorage.setItem(
         `@geniusfactory:simulado-contexto-${simuladoId}`,
-        JSON.stringify({
-          trilhaId,
-          caminhoId,
-          blocoId,
-          atividadeId,
-        })
+        JSON.stringify(contexto)
       )
 
-      // Navega para a tela de resolver (reutiliza componente existente)
+      // ✅ VERIFICA se foi salvo corretamente
+      const verificacao = await AsyncStorage.getItem(`@geniusfactory:simulado-contexto-${simuladoId}`)
+      console.log('[PaginaSimulado] Contexto verificado:', verificacao)
+
+      // Navega para a tela de resolver
       router.push(`/simulados/${simuladoId}/resolver`)
     } catch (error: any) {
       console.error('[PaginaSimulado] Erro ao iniciar:', error)
@@ -149,11 +160,12 @@ export function PaginaSimulado({
     >
       {/* Card de Informações */}
       <View style={styles.card}>
-        <View style={styles.headerIcon}>
-          <Ionicons name="school" size={24} color="#7C3AED" />
+        <View style={styles.headerRow}>
+          <View style={styles.headerIcon}>
+            <Ionicons name="school" size={20} color="#E91E63" />
+          </View>
+          <Text style={styles.title}>{atividadeTitulo}</Text>
         </View>
-
-        <Text style={styles.title}>{atividadeTitulo}</Text>
 
         <Text style={styles.description}>
           Este simulado funciona como uma prova de verdade!
@@ -216,20 +228,7 @@ export function PaginaSimulado({
           {iniciando ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <>
-              <Ionicons
-                name={
-                  meta.status === 'concluido'
-                    ? 'eye'
-                    : meta.status === 'em_andamento'
-                    ? 'play'
-                    : 'rocket'
-                }
-                size={18}
-                color="#FFFFFF"
-              />
-              <Text style={styles.buttonText}>{textoBotao}</Text>
-            </>
+            <Text style={styles.buttonText}>{textoBotao}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -277,25 +276,30 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  headerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F5F3FF',
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
     marginBottom: 16,
   },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
+    flex: 1,
     fontSize: 22,
-    fontWeight: '700',
     color: '#111827',
     fontFamily: 'Inter-Bold',
-    marginBottom: 12,
   },
   description: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#374151',
     fontFamily: 'Inter-SemiBold',
     marginBottom: 8,
@@ -308,7 +312,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bold: {
-    fontWeight: '700',
     fontFamily: 'Inter-Bold',
   },
   infoSection: {
@@ -336,7 +339,6 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 15,
-    fontWeight: '600',
     color: '#111827',
     fontFamily: 'Inter-SemiBold',
   },
@@ -346,7 +348,6 @@ const styles = StyleSheet.create({
   },
   distribuicaoTitle: {
     fontSize: 15,
-    fontWeight: '600',
     color: '#111827',
     fontFamily: 'Inter-SemiBold',
     marginBottom: 8,
@@ -381,12 +382,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#30C58E',
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 24,
-    shadowColor: '#7C3AED',
+    shadowColor: '#30C58E',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -397,7 +397,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
   },

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,11 +16,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { ModalConquistas } from '../../../../../components/blocos/ModalConquistas';
 import { BlocoCard } from '../../../../../components/trilhas/BlocoCard';
 import { ModalCaminhos } from '../../../../../components/trilhas/ModalCaminhos';
 import { getMateriaVisualConfig } from '../../../../../src/constants/materias';
+import { api } from '../../../../../src/lib/api';
 import type { TrilhasCaminhoResponse } from '../../../../../src/schemas/trilhas.caminho-completo';
 import { invalidarCacheCaminho, obterCaminho } from '../../../../../src/services/caminhoService';
+import { finalizarTrilha } from '../../../../../src/services/trilhasService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONNECTOR_HEIGHT = 70;
@@ -55,6 +58,11 @@ export default function CaminhoScreen() {
   // Mantém um Set de blocos que estão em modo "refazer" (AsyncStorage limpo, mas backend ainda indica concluído)
   const [blocosEmRefazer, setBlocosEmRefazer] = useState<Set<string>>(new Set());
 
+  // Estados para finalização da trilha
+  const [conquistasDesbloqueadas, setConquistasDesbloqueadas] = useState<any[]>([]);
+  const [modalConquistaAberto, setModalConquistaAberto] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
+
   // ✅ NOVO: Refs para controle de scroll
   const scrollViewRef = useRef<ScrollView>(null);
   const blocoPosicoes = useRef<Record<string, number>>({});
@@ -71,28 +79,22 @@ export default function CaminhoScreen() {
       const blocoRefId = await AsyncStorage.getItem(chave);
       
       if (!blocoRefId) {
-        console.log('[restaurarScroll] ℹ️ Sem bloco de referência salvo');
         return;
       }
-      
-      console.log(`[restaurarScroll] 📍 Bloco de referência: ${blocoRefId}`);
       
       // Aguarda um pouco para garantir que os blocos foram renderizados e posições capturadas
       setTimeout(() => {
         const posicaoY = blocoPosicoes.current[blocoRefId];
         
         if (posicaoY !== undefined) {
-          console.log(`[restaurarScroll] ⬇️ Fazendo scroll para Y=${posicaoY}`);
           scrollViewRef.current?.scrollTo({ 
             y: Math.max(0, posicaoY - 100), // Offset de 100px para não ficar colado no topo
             animated: true 
           });
-        } else {
-          console.log(`[restaurarScroll] ⚠️ Posição do bloco ${blocoRefId} ainda não capturada`);
         }
       }, 300); // Aguarda 300ms para garantir que o layout foi calculado
     } catch (error) {
-      console.error('[restaurarScroll] ❌ Erro:', error);
+      // Erro silencioso
     }
   }, []);
 
@@ -100,26 +102,16 @@ export default function CaminhoScreen() {
   const recarregarSilencioso = useCallback(async () => {
     if (!trilhaId || !caminhoId) return;
     try {
-      console.log('[recarregarSilencioso] 🔄 Recarregando dados do caminho...');
       setErro(null);
       // Força busca de dados novos (ignora cache se necessário)
       // Como o cache já foi invalidado antes de navegar de volta, isso garante dados atualizados
       const dados = await obterCaminho(trilhaId, caminhoId);
-      console.log('[recarregarSilencioso] ✅ Dados recarregados:', {
-        totalBlocos: dados.blocos.length,
-        blocos: dados.blocos.map(b => ({
-          id: b.id,
-          titulo: b.titulo,
-          concluido: b.atividades.every(a => a.concluido)
-        }))
-      });
       setData(dados);
       
       // ✅ NOVO: Restaurar scroll para bloco de referência quando retorna de "fora"
       await restaurarScrollParaBlocoReferencia(caminhoId, dados);
     } catch (e: any) {
       // Erro silencioso - não mostra mensagem para não interromper a experiência
-      console.error('[recarregarSilencioso] ❌ Erro ao recarregar caminho:', e);
     }
   }, [trilhaId, caminhoId, restaurarScrollParaBlocoReferencia]);
 
@@ -133,7 +125,6 @@ export default function CaminhoScreen() {
         setData(dados);
         initialLoadedRef.current = true;
       } catch (e: any) {
-        console.error('Erro ao carregar caminho:', e);
         setErro('Não foi possível carregar os dados do caminho. Tente novamente.');
       } finally {
         setLoading(false);
@@ -170,7 +161,6 @@ export default function CaminhoScreen() {
     async function verificarBlocosEmRefazer() {
       if (!data) return;
       
-      console.log('[CaminhoScreen] 🔍 Verificando blocos em modo refazer...');
       const blocosRefazer = new Set<string>();
       
       for (const bloco of data.blocos) {
@@ -181,16 +171,13 @@ export default function CaminhoScreen() {
           // Vamos usar uma flag no AsyncStorage para marcar blocos em modo refazer
           const refazerKey = `@geniusfactory:refazer-bloco-${bloco.id}`;
           const emRefazer = await AsyncStorage.getItem(refazerKey);
-          console.log(`[CaminhoScreen] 📦 Bloco ${bloco.id} (${bloco.titulo}): concluído=${todasAtividadesConcluidas}, flagRefazer=${emRefazer}`);
           
           if (emRefazer === 'true') {
             blocosRefazer.add(bloco.id);
-            console.log(`[CaminhoScreen] ✅ Bloco ${bloco.id} está em modo REFAZER`);
           }
         }
       }
       
-      console.log(`[CaminhoScreen] 📊 Blocos em refazer: ${Array.from(blocosRefazer).join(', ') || 'nenhum'}`);
       setBlocosEmRefazer(blocosRefazer);
     }
     
@@ -215,7 +202,6 @@ export default function CaminhoScreen() {
         
         if (!isConcluidoFinal) {
           blocoReferencia = bloco.id;
-          console.log(`[salvarBlocoRef] 🎯 Próximo bloco a fazer: ${bloco.id} (${bloco.titulo})`);
           break;
         }
       }
@@ -223,16 +209,14 @@ export default function CaminhoScreen() {
       // Se todos estão concluídos, usa o último bloco
       if (!blocoReferencia && data.blocos.length > 0) {
         blocoReferencia = data.blocos[data.blocos.length - 1].id;
-        console.log(`[salvarBlocoRef] 🏁 Todos concluídos, usando último bloco: ${blocoReferencia}`);
       }
       
       if (blocoReferencia) {
         const chave = `@geniusfactory:caminho-bloco-ref-${caminhoId}`;
         await AsyncStorage.setItem(chave, blocoReferencia);
-        console.log(`[salvarBlocoRef] ✅ Bloco de referência salvo: ${blocoReferencia}`);
       }
     } catch (error) {
-      console.error('[salvarBlocoRef] ❌ Erro:', error);
+      // Erro silencioso
     }
   }, [data, caminhoId, blocosEmRefazer]);
 
@@ -241,7 +225,6 @@ export default function CaminhoScreen() {
    */
   const handleBlocoLayout = useCallback((blocoId: string, y: number) => {
     blocoPosicoes.current[blocoId] = y;
-    console.log(`[handleBlocoLayout] 📐 Bloco ${blocoId} em Y=${y}`);
   }, []);
 
   /**
@@ -249,11 +232,8 @@ export default function CaminhoScreen() {
    */
   const limparPersistenciaBloco = useCallback(async (blocoId: string) => {
     try {
-      console.log(`[limparPersistenciaBloco] 🧹 Iniciando limpeza do bloco ${blocoId}`);
-      
       // 1. Marca o bloco como em modo "refazer"
       await AsyncStorage.setItem(`@geniusfactory:refazer-bloco-${blocoId}`, 'true');
-      console.log(`[limparPersistenciaBloco] ✅ Flag de refazer salva para bloco ${blocoId}`);
       
       // 2. Remove as chaves principais do bloco
       const chavesPrincipais = [
@@ -264,7 +244,6 @@ export default function CaminhoScreen() {
 
       // 3. Busca todas as chaves do AsyncStorage para encontrar as relacionadas ao bloco
       const todasChaves = await AsyncStorage.getAllKeys();
-      console.log(`[limparPersistenciaBloco] 📋 Total de chaves no AsyncStorage: ${todasChaves.length}`);
       
       // Filtra chaves relacionadas ao bloco:
       // - questao-estado-${blocoId}-${questaoId}
@@ -283,33 +262,51 @@ export default function CaminhoScreen() {
 
       // 4. Remove todas as chaves relacionadas
       const todasChavesParaRemover = [...chavesPrincipais, ...chavesQuestoes];
-      console.log(`[limparPersistenciaBloco] 🗑️ Removendo ${todasChavesParaRemover.length} chaves:`, todasChavesParaRemover);
       
       if (todasChavesParaRemover.length > 0) {
         await AsyncStorage.multiRemove(todasChavesParaRemover);
-        console.log(`[limparPersistenciaBloco] ✅ Chaves removidas com sucesso`);
-      } else {
-        console.log(`[limparPersistenciaBloco] ℹ️ Nenhuma chave para remover`);
       }
     } catch (error) {
-      console.error('[limparPersistenciaBloco] ❌ Erro:', error);
+      // Erro silencioso
     }
   }, []);
 
   const handlePressBloco = useCallback(async (blocoId: string, isConcluido: boolean) => {
-    console.log(`[handlePressBloco] 🖱️ Bloco clicado: ${blocoId}, isConcluido: ${isConcluido}`);
-    
     // ✅ NOVO: Remove a referência ao entrar no bloco para evitar scroll indesejado
     try {
       const chave = `@geniusfactory:caminho-bloco-ref-${caminhoId}`;
       await AsyncStorage.removeItem(chave);
-      console.log(`[handlePressBloco] 🗑️ Referência de scroll removida`);
     } catch (error) {
-      console.error('[handlePressBloco] ❌ Erro ao remover referência:', error);
+      // Erro silencioso
     }
     
-    // Se o bloco está concluído, mostra confirmação
-    if (isConcluido) {
+    // Se o bloco está concluído, verifica se tem atividade de simulado
+    if (isConcluido && data) {
+      // Encontra o bloco nos dados
+      const bloco = data.blocos.find(b => b.id === blocoId);
+      
+      // Verifica se o bloco tem atividade do tipo "simulado"
+      const atividadeSimulado = bloco?.atividades.find(a => a.tipo === 'simulado' && a.concluido);
+      
+      if (atividadeSimulado) {
+        // Bloco concluído com simulado - verifica se o simulado está concluído
+        try {
+          const { data: simuladoMeta } = await api.get<{
+            status: 'nao_iniciado' | 'em_andamento' | 'concluido'
+            simuladoId: string | null
+          }>(`/mobile/v1/trilhas/${trilhaId}/simulados/${atividadeSimulado.id}`);
+          
+          // Se o simulado está concluído e tem simuladoId, navega direto para o resultado
+          if (simuladoMeta.status === 'concluido' && simuladoMeta.simuladoId) {
+            router.push(`/simulados/${simuladoMeta.simuladoId}/resultado`);
+            return;
+          }
+        } catch (error) {
+          // Erro ao buscar metadados do simulado - continua com o fluxo normal
+        }
+      }
+      
+      // Se não tem simulado concluído ou não encontrou, mostra confirmação normal
       Alert.alert(
         'Bloco Concluído',
         'Este bloco já foi concluído. O que você deseja fazer?',
@@ -321,7 +318,6 @@ export default function CaminhoScreen() {
           {
             text: 'Revisar',
             onPress: () => {
-              console.log(`[handlePressBloco] 👀 Revisar bloco ${blocoId}`);
               // Navega sem limpar o AsyncStorage
               router.push(`/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`);
             },
@@ -330,24 +326,18 @@ export default function CaminhoScreen() {
             text: 'Refazer',
             style: 'destructive',
             onPress: async () => {
-              console.log(`[handlePressBloco] 🔄 REFAZER bloco ${blocoId} - Iniciando...`);
-              
               // Limpa o AsyncStorage
               await limparPersistenciaBloco(blocoId);
-              console.log(`[handlePressBloco] ✅ AsyncStorage limpo`);
               
               // Invalida o cache
               await invalidarCacheCaminho(trilhaId, caminhoId);
-              console.log(`[handlePressBloco] ✅ Cache invalidado`);
               
               // Recarrega os dados
               await recarregarSilencioso();
-              console.log(`[handlePressBloco] ✅ Dados recarregados`);
               
               // CRÍTICO: Aguarda 300ms para garantir que AsyncStorage foi completamente limpo
               // AsyncStorage.multiRemove é assíncrono e pode não ter terminado imediatamente
               await new Promise(resolve => setTimeout(resolve, 300));
-              console.log(`[handlePressBloco] ✅ AsyncStorage estabilizado`);
               
               // Navega para o bloco
               router.push(`/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`);
@@ -358,16 +348,36 @@ export default function CaminhoScreen() {
       );
     } else {
       // Se não está concluído, navega normalmente
-      console.log(`[handlePressBloco] ➡️ Navegando normalmente para bloco ${blocoId}`);
       router.push(`/trilhas/${trilhaId}/caminhos/${caminhoId}/blocos/${blocoId}`);
     }
-  }, [trilhaId, caminhoId, router, limparPersistenciaBloco, recarregarSilencioso]);
+  }, [trilhaId, caminhoId, router, limparPersistenciaBloco, recarregarSilencioso, data]);
+
+  /**
+   * Finaliza a trilha quando todos os caminhos estão concluídos
+   */
+  const handleFinalizarTrilha = useCallback(async () => {
+    try {
+      setFinalizando(true);
+      
+      const resultado = await finalizarTrilha(trilhaId);
+      
+      if (resultado.novasConquistas && resultado.novasConquistas.length > 0) {
+        setConquistasDesbloqueadas(resultado.novasConquistas);
+        setModalConquistaAberto(true);
+      } else {
+        // Sem conquistas, redireciona diretamente
+        router.replace('/trilhas');
+      }
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Não foi possível finalizar a trilha.');
+    } finally {
+      setFinalizando(false);
+    }
+  }, [trilhaId, router]);
   
   // Força atualização do estado blocosEmRefazer após recarregar dados
   useEffect(() => {
-    if (data) {
-      console.log('[CaminhoScreen] 📊 Estado atual do blocosEmRefazer:', Array.from(blocosEmRefazer));
-    }
+    // Atualização silenciosa do estado
   }, [data, blocosEmRefazer]);
 
   // Salva a referência sempre que os dados mudam
@@ -376,6 +386,15 @@ export default function CaminhoScreen() {
       salvarBlocoReferencia();
     }
   }, [data, blocosEmRefazer, salvarBlocoReferencia]);
+
+  // ✅ CRÍTICO: useMemo deve estar ANTES dos returns condicionais
+  // Verifica se TODOS os caminhos da trilha estão concluídos
+  const trilhaConcluida = useMemo(() => {
+    if (!data || !data.trilha.caminhos) return false;
+    
+    // Verifica se todos os caminhos têm percentual 100%
+    return data.trilha.caminhos.every(caminho => caminho.percentual === 100);
+  }, [data]);
 
   if (loading) {
     return (
@@ -403,7 +422,6 @@ export default function CaminhoScreen() {
                 const dados = await obterCaminho(trilhaId, caminhoId);
                 setData(dados);
               } catch (e) {
-                console.error('Erro ao recarregar:', e);
                 setErro('Não foi possível carregar os dados.');
               } finally {
                 setLoading(false);
@@ -443,10 +461,6 @@ export default function CaminhoScreen() {
       data.blocos[index - 1].atividades.every(a => a.concluido);
 
     const isConcluidoFinal = todasAtividadesConcluidas && !estaEmRefazer;
-    
-    if (index === 0 || todasAtividadesConcluidas || estaEmRefazer) {
-      console.log(`[blocosComStatus] 📦 Bloco ${bloco.id} (${bloco.titulo}): concluídoBackend=${todasAtividadesConcluidas}, emRefazer=${estaEmRefazer}, isConcluidoFinal=${isConcluidoFinal}`);
-    }
 
     return {
       ...bloco,
@@ -521,41 +535,63 @@ export default function CaminhoScreen() {
             <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {caminhoConcluido && proximoCaminho ? (
-            <TouchableOpacity
-              style={styles.proximoCaminhoSetaHeader}
-              onPress={handleIrParaProximoCaminho}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.progressCircle}>
-              <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
-                <Circle
-                  cx={PROGRESS_SIZE / 2}
-                  cy={PROGRESS_SIZE / 2}
-                  r={PROGRESS_RADIUS}
-                  stroke="#FFFFFF"
-                  strokeWidth={PROGRESS_STROKE}
-                  fill="none"
-                />
-                <Circle
-                  cx={PROGRESS_SIZE / 2}
-                  cy={PROGRESS_SIZE / 2}
-                  r={PROGRESS_RADIUS}
-                  stroke="#1CC5A5"
-                  strokeWidth={PROGRESS_STROKE}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
-                  strokeDashoffset={progressOffset}
-                  transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
-                />
-              </Svg>
-              <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
-            </View>
+          {caminhoConcluido && (
+            trilhaConcluida ? (
+              // Trilha 100% concluída → Botão de finalizar
+              <TouchableOpacity
+                style={styles.finalizarTrilhaButton}
+                onPress={handleFinalizarTrilha}
+                disabled={finalizando}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
+              >
+                {finalizando ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="trophy" size={20} color="#FFFFFF" />
+                    <Text style={styles.finalizarTrilhaText}>Finalizar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : proximoCaminho ? (
+              // Caminho concluído mas trilha não → Próximo caminho
+              <TouchableOpacity
+                style={styles.proximoCaminhoSetaHeader}
+                onPress={handleIrParaProximoCaminho}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            ) : (
+              // Círculo de progresso (padrão)
+              <View style={styles.progressCircle}>
+                <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
+                  <Circle
+                    cx={PROGRESS_SIZE / 2}
+                    cy={PROGRESS_SIZE / 2}
+                    r={PROGRESS_RADIUS}
+                    stroke="#FFFFFF"
+                    strokeWidth={PROGRESS_STROKE}
+                    fill="none"
+                  />
+                  <Circle
+                    cx={PROGRESS_SIZE / 2}
+                    cy={PROGRESS_SIZE / 2}
+                    r={PROGRESS_RADIUS}
+                    stroke="#1CC5A5"
+                    strokeWidth={PROGRESS_STROKE}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
+                    strokeDashoffset={progressOffset}
+                    transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
+                  />
+                </Svg>
+                <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
+              </View>
+            )
           )}
         </View>
 
@@ -638,6 +674,17 @@ export default function CaminhoScreen() {
         trilha={data.trilha}
         caminhoAtualId={caminhoId}
         onSelecionarCaminho={handleSelecionarCaminho}
+      />
+
+      {/* Modal de Conquistas */}
+      <ModalConquistas
+        visible={modalConquistaAberto}
+        conquistas={conquistasDesbloqueadas}
+        onClose={() => {
+          setModalConquistaAberto(false);
+          // Redireciona para lista de trilhas após fechar o modal
+          router.replace('/trilhas');
+        }}
       />
     </View>
   );
@@ -776,6 +823,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
+  },
+  finalizarTrilhaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    marginLeft: 12,
+    minWidth: 100,
+  },
+  finalizarTrilhaText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   scrollView: {
     flex: 1,

@@ -9,7 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import QuestaoSimuladoCard from "@/components/questoes/QuestaoSimuladoCard";
 import {
   avaliarPendentes,
-  getSimuladoParaResolver, // POST /mobile/v1/qbank/simulados/:id/iniciar
+  getSimuladoParaResolver, pausarSimulado, // POST /mobile/v1/qbank/simulados/:id/iniciar
   responderSimulado, // POST /mobile/v1/qbank/simulados/:id/responder
 } from "@/src/services/simuladosExecService";
 import { consumeResolverCache } from "@/src/stores/simuladoResolverCache";
@@ -170,6 +170,9 @@ export default function ResolverSimuladoScreen() {
 
   const respostasRef = useRef(respostas);
   useEffect(() => { respostasRef.current = respostas; }, [respostas]);
+  
+  // Ref para o ScrollView (para controlar scroll ao topo ao mudar de questão)
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Carregar + iniciar
   useEffect(() => {
@@ -244,6 +247,16 @@ export default function ResolverSimuladoScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tempoRestante === 0]);
 
+  // Scroll automático para o topo ao mudar de questão
+  useEffect(() => {
+    if (paginaAtual > 1) {
+      // Aguarda um pequeno delay para garantir que o conteúdo foi renderizado
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
+    }
+  }, [paginaAtual]);
+
   const questaoAtual: Questao | null = useMemo(() => {
     if (!simulado) return null;
     const idx = paginaAtual - 1;
@@ -255,8 +268,48 @@ export default function ResolverSimuladoScreen() {
   }, []);
 
   const handlePause = useCallback(() => {
-    Alert.alert("Pausar simulado", "Função de pausa ainda não está disponível.");
-  }, []);
+    Alert.alert(
+      "Pausar simulado",
+      "Seu progresso será salvo e você poderá retomar depois. Deseja pausar?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Pausar",
+          onPress: async () => {
+            if (!simulado) return;
+            
+            try {
+              // Calcula tempo gasto
+              const tempoGasto = (simulado.tempoMinutos * 60) - (tempoRestante ?? 0);
+              
+              // Serializa respostas
+              const payload: Record<string, string> = {};
+              Object.entries(respostasRef.current).forEach(([questaoId, valor]) => {
+                payload[questaoId] = serializarParaEnvio(valor);
+              });
+              
+              // Chama API de pausar
+              await pausarSimulado(
+                simulado.id,
+                tempoGasto,
+                payload,
+                paginaAtual - 1 // índice começa em 0
+              );
+              
+              // Navega de volta
+              router.back();
+            } catch (e) {
+              console.error('[Pausar simulado]', e);
+              Alert.alert('Erro', 'Não foi possível pausar o simulado. Tente novamente.');
+            }
+          }
+        }
+      ]
+    );
+  }, [simulado, tempoRestante, paginaAtual, router]);
 
   async function concluir() {
     if (!simulado) return;
@@ -360,6 +413,7 @@ export default function ResolverSimuladoScreen() {
 
         {/* Corpo */}
         <ScrollView
+          ref={scrollViewRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: Math.max(16, insets.bottom) }}
           keyboardShouldPersistTaps="handled"

@@ -97,20 +97,46 @@ export default function ResultadoScreen() {
         if (!active) return;
         setData(r);
         
-        // ✅ ADICIONAR ESTE BLOCO
+        // ✅ SEMPRE LIMPA O CONTEXTO PRIMEIRO
+        setContextoTrilha(null);
+        
         const contextoKey = `@geniusfactory:simulado-contexto-${id}`;
+        console.log('[ResultadoSimulado] Buscando contexto com chave:', contextoKey);
+        
         const contextoRaw = await AsyncStorage.getItem(contextoKey);
+        console.log('[ResultadoSimulado] Contexto raw encontrado:', contextoRaw);
         
         if (contextoRaw) {
           try {
             const contexto = JSON.parse(contextoRaw);
-            setContextoTrilha(contexto);
-            console.log('[ResultadoSimulado] Contexto de trilha detectado:', contexto);
+            console.log('[ResultadoSimulado] Contexto parseado:', contexto);
+            
+            // Valida se o contexto tem os campos necessários e válidos
+            if (
+              contexto &&
+              typeof contexto === 'object' &&
+              contexto.trilhaId &&
+              contexto.caminhoId &&
+              contexto.blocoId &&
+              contexto.atividadeId &&
+              typeof contexto.trilhaId === 'string' &&
+              typeof contexto.caminhoId === 'string' &&
+              typeof contexto.blocoId === 'string' &&
+              typeof contexto.atividadeId === 'string'
+            ) {
+              console.log('[ResultadoSimulado] ✅ Contexto válido! Modo trilha ativado');
+              setContextoTrilha(contexto);
+            } else {
+              console.warn('[ResultadoSimulado] ❌ Contexto inválido, removendo:', contexto);
+              await AsyncStorage.removeItem(contextoKey);
+            }
           } catch (e) {
-            console.warn('[ResultadoSimulado] Erro ao parsear contexto:', e);
+            console.error('[ResultadoSimulado] ❌ Erro ao parsear contexto:', e);
+            await AsyncStorage.removeItem(contextoKey);
           }
+        } else {
+          console.log('[ResultadoSimulado] ℹ️ Nenhum contexto encontrado - modo Q-Bank normal');
         }
-        // ✅ FIM DO BLOCO
         
       } catch (e) {
         console.error(e);
@@ -170,15 +196,14 @@ export default function ResultadoScreen() {
         `/mobile/v1/trilhas/${contextoTrilha.trilhaId}/simulados/${contextoTrilha.atividadeId}/concluir`
       );
 
-      // Limpa contexto do AsyncStorage
-      await AsyncStorage.removeItem(`@geniusfactory:simulado-contexto-${id}`);
+      // ✅ Deixar o contexto no AsyncStorage para permitir revisão futura
       
       // Invalida cache do caminho
       await invalidarCacheCaminho(contextoTrilha.trilhaId, contextoTrilha.caminhoId);
       
       // TODO: Mostrar modal de conquistas se houver
       if (resposta.conquistasDesbloqueadas?.length > 0) {
-        console.log('[ResultadoSimulado] Conquistas desbloqueadas:', resposta.conquistasDesbloqueadas);
+        // Conquistas desbloqueadas serão mostradas no futuro
       }
 
       // Navega para o caminho
@@ -229,7 +254,7 @@ export default function ResultadoScreen() {
             if (contextoTrilha) {
               router.replace(`/trilhas/${contextoTrilha.trilhaId}/caminhos/${contextoTrilha.caminhoId}`);
             } else {
-              router.back();
+              router.replace('/dashboard');
             }
           }} 
           style={styles.backBtn}

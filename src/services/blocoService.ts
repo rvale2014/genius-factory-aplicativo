@@ -56,9 +56,6 @@ export async function obterBloco(
     
     const response = await api.get(`/mobile/v1/blocos/${blocoId}`)
     
-    console.log('✅ Response status:', response.status)
-    console.log('✅ Response data:', response.data)
-    
     return response.data
   } catch (error: any) {
     console.error('❌ Erro em obterBloco:', error)

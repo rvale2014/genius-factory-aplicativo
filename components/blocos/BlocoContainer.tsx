@@ -469,10 +469,28 @@ export function BlocoContainer() {
         >
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <Text style={styles.headerTitle} numberOfLines={2}>
           {atividade.titulo}
         </Text>
-        <View style={{ width: 40 }} />
+        {paginaInfo.tipo !== 'simulado' && (
+          <TouchableOpacity
+            onPress={handleEncerrar}
+            disabled={!podeEncerrar || encerrando}
+            style={[
+              styles.botaoEncerrarHeader,
+              (!podeEncerrar || encerrando) && styles.botaoEncerrarHeaderDisabled,
+            ]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.8}
+          >
+            {encerrando ? (
+              <ActivityIndicator color="#30C58E" size="small" />
+            ) : (
+              <Text style={styles.botaoEncerrarHeaderTexto}>Encerrar</Text>
+            )}
+          </TouchableOpacity>
+        )}
+        {paginaInfo.tipo === 'simulado' && <View style={{ width: 70 }} />}
       </View>
 
       <ScrollView
@@ -481,13 +499,15 @@ export function BlocoContainer() {
         showsVerticalScrollIndicator={false}
       >
         {/* Barra de navegação com círculos */}
-        <BarraNavegacaoPaginas
-          totalPaginas={paginas.length}
-          paginaAtual={paginaAtual}
-          paginasConcluidas={paginasConcluidas}
-          paginasComErro={paginasComErro}
-          onIrParaPagina={setPaginaAtual}
-        />
+        {paginaInfo.tipo !== 'simulado' && (
+          <BarraNavegacaoPaginas
+            totalPaginas={paginas.length}
+            paginaAtual={paginaAtual}
+            paginasConcluidas={paginasConcluidas}
+            paginasComErro={paginasComErro}
+            onIrParaPagina={setPaginaAtual}
+          />
+        )}
 
         {/* Renderiza a página atual */}
         <PaginaRenderer
@@ -505,41 +525,20 @@ export function BlocoContainer() {
           {paginaAtual > 0 && (
             <TouchableOpacity
               onPress={voltar}
-              style={styles.botaoNavegacao}
+              style={styles.botaoSeta}
               activeOpacity={0.8}
             >
-              <Ionicons name="arrow-back" size={16} color="#7C3AED" />
-              <Text style={styles.botaoNavegacaoTexto}>Anterior</Text>
+              <Ionicons name="arrow-back" size={20} color="#E91E63" />
             </TouchableOpacity>
           )}
-
-          {paginaAtual < paginas.length - 1 ? (
+          
+          {paginaAtual < paginas.length - 1 && (
             <TouchableOpacity
               onPress={avancar}
-              style={[styles.botaoNavegacao, styles.botaoProxima]}
+              style={styles.botaoSeta}
               activeOpacity={0.8}
             >
-              <Text style={styles.botaoNavegacaoTexto}>Próxima</Text>
-              <Ionicons name="arrow-forward" size={16} color="#7C3AED" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={handleEncerrar}
-              disabled={!podeEncerrar || encerrando}
-              style={[
-                styles.botaoEncerrar,
-                (!podeEncerrar || encerrando) && styles.botaoEncerrarDisabled,
-              ]}
-              activeOpacity={0.8}
-            >
-              {encerrando ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                  <Text style={styles.botaoEncerrarTexto}>Encerrar Bloco</Text>
-                </>
-              )}
+              <Ionicons name="arrow-forward" size={20} color="#E91E63" />
             </TouchableOpacity>
           )}
         </View>
@@ -625,7 +624,7 @@ async function limparPersistencia(blocoId: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -645,10 +644,31 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
+    fontFamily: 'Inter-SemiBold',
+    marginHorizontal: 8,
+    flexWrap: 'wrap',
+  },
+  botaoEncerrarHeader: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#30C58E',
+    minWidth: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  botaoEncerrarHeaderDisabled: {
+    backgroundColor: '#D1D5DB',
+    opacity: 0.6,
+  },
+  botaoEncerrarHeaderTexto: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
     fontFamily: 'Inter-SemiBold',
   },
   scrollContent: {
@@ -679,31 +699,20 @@ const styles = StyleSheet.create({
   },
   navegacao: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
     gap: 12,
   },
-  botaoNavegacao: {
-    flex: 1,
-    flexDirection: 'row',
+  botaoSeta: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#7C3AED',
-    backgroundColor: '#FFFFFF',
-  },
-  botaoProxima: {
-    marginLeft: 'auto',
-  },
-  botaoNavegacaoTexto: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#7C3AED',
-    fontFamily: 'Inter-SemiBold',
+    borderColor: '#E5E7EB',
   },
   botaoEncerrar: {
     flex: 1,

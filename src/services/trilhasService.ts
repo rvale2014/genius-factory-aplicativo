@@ -24,3 +24,18 @@ export async function listarTrilhas(params: ListarTrilhasParams = {}): Promise<T
   // Validação/parse no CLIENTE
   return TrilhasResponseSchema.parse(res.data);
 }
+
+export async function finalizarTrilha(trilhaId: string): Promise<{
+  ok: boolean
+  jaConcluida?: boolean
+  novasConquistas: Array<{
+    nome: string
+    titulo: string
+    nivel: number
+    categoria: string
+    imagemUrl: string
+  }>
+}> {
+  const res = await api.post(`/mobile/v1/trilhas/${trilhaId}/concluir`)
+  return res.data
+}

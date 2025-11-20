@@ -18,3 +18,15 @@ export async function avaliarPendentes(id: string) {
   return data as { processadas: number; restantes: number; percentualFinal?: number; conquistasDesbloqueadas?: any[] };
 }
 
+export async function pausarSimulado(
+  id: string,
+  tempoGastoEmSegundos: number,
+  respostasPorQuestao: Record<string, string>,
+  ultimaQuestaoIndex: number
+) {
+  await api.post(`/mobile/v1/qbank/simulados/${id}/pausar`, {
+    tempoGastoEmSegundos,
+    respostasPorQuestao,
+    ultimaQuestaoIndex,
+  });
+}
