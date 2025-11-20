@@ -75,8 +75,8 @@ export function ModalCaminhos({
               {trilha.caminhos.map((caminho, index) => {
                 const isAtual = caminho.id === caminhoAtualId;
                 const isConcluido = caminho.percentual === 100;
-                const isDesbloqueado = index === 0 || 
-                  trilha.caminhos[index - 1].percentual === 100;
+                // ✅ Permite navegação livre - todos os caminhos estão disponíveis
+                const isDesbloqueado = true;
 
                 return (
                   <TouchableOpacity
@@ -84,14 +84,10 @@ export function ModalCaminhos({
                     style={[
                       styles.caminhoCard,
                       isAtual && styles.caminhoCardAtual,
-                      !isDesbloqueado && styles.caminhoCardBloqueado,
                     ]}
                     onPress={() => {
-                      if (isDesbloqueado) {
-                        onSelecionarCaminho(caminho.id);
-                      }
+                      onSelecionarCaminho(caminho.id);
                     }}
-                    disabled={!isDesbloqueado}
                     activeOpacity={0.7}
                   >
                     {/* Número e Status */}
@@ -99,12 +95,9 @@ export function ModalCaminhos({
                       styles.caminhoNumero,
                       isAtual && styles.caminhoNumeroAtual,
                       isConcluido && styles.caminhoNumeroConcluido,
-                      !isDesbloqueado && styles.caminhoNumeroBloqueado,
                     ]}>
                       {isConcluido ? (
                         <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                      ) : !isDesbloqueado ? (
-                        <Ionicons name="lock-closed" size={20} color="#9CA3AF" />
                       ) : (
                         <Text style={[
                           styles.caminhoNumeroTexto,
@@ -118,44 +111,34 @@ export function ModalCaminhos({
                     {/* Informações */}
                     <View style={styles.caminhoInfo}>
                       <Text 
-                        style={[
-                          styles.caminhoNome,
-                          !isDesbloqueado && styles.caminhoNomeBloqueado,
-                        ]}
+                        style={styles.caminhoNome}
                         numberOfLines={2}
                       >
                         {caminho.nome}
                       </Text>
                       
                       <View style={styles.caminhoStats}>
-                        <Text style={[
-                          styles.caminhoStatsTexto,
-                          !isDesbloqueado && styles.caminhoStatsTextoBloqueado,
-                        ]}>
+                        <Text style={styles.caminhoStatsTexto}>
                           {caminho.concluidas}/{caminho.totalAtividades} atividades
                         </Text>
                         
-                        {isDesbloqueado && (
-                          <>
-                            <View style={styles.separator} />
-                            <Text style={styles.caminhoPercentual}>
-                              {caminho.percentual}%
-                            </Text>
-                          </>
-                        )}
+                        <>
+                          <View style={styles.separator} />
+                          <Text style={styles.caminhoPercentual}>
+                            {caminho.percentual}%
+                          </Text>
+                        </>
                       </View>
 
                       {/* Barra de Progresso */}
-                      {isDesbloqueado && (
-                        <View style={styles.progressBar}>
-                          <View 
-                            style={[
-                              styles.progressFill,
-                              { width: `${caminho.percentual}%` }
-                            ]} 
-                          />
-                        </View>
-                      )}
+                      <View style={styles.progressBar}>
+                        <View 
+                          style={[
+                            styles.progressFill,
+                            { width: `${caminho.percentual}%` }
+                          ]} 
+                        />
+                      </View>
                     </View>
 
                     {/* Badge "Atual" */}
@@ -166,7 +149,7 @@ export function ModalCaminhos({
                     )}
 
                     {/* Seta */}
-                    {isDesbloqueado && !isAtual && (
+                    {!isAtual && (
                       <Ionicons 
                         name="chevron-forward" 
                         size={20} 
@@ -216,7 +199,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter-Regular',
   },
   subtitulo: {
     fontSize: 14,
@@ -247,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -280,7 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   caminhoNumeroTexto: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: '#6B7280',
     fontFamily: 'Inter-Bold',
@@ -292,11 +275,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   caminhoNome: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 13,
+    color: '#333',
     marginBottom: 6,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Medium',
+    lineHeight: 16,
   },
   caminhoNomeBloqueado: {
     color: '#9CA3AF',
@@ -304,10 +287,10 @@ const styles = StyleSheet.create({
   caminhoStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   caminhoStatsTexto: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
     fontFamily: 'Inter-Regular',
   },
@@ -322,7 +305,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   caminhoPercentual: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#7A34FF',
     fontFamily: 'Inter-SemiBold',
@@ -335,7 +318,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#7A34FF',
+    backgroundColor: '#FF5FDB',
     borderRadius: 3,
   },
   badgeAtual: {

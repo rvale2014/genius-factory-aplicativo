@@ -5,9 +5,10 @@ import { StyleSheet, Text, View } from 'react-native'
 import { PaginaLeitura } from '../leitura/PaginaLeitura'
 import { QuestaoCardBloco } from '../questoes/QuestaoCardBloco'
 import { PaginaVideo } from '../video/PaginaVideo'
+import { PaginaSimulado } from '../simuladoTrilha/PaginaSimulado'
 
 type PaginaInfo = {
-  tipo: 'leitura' | 'video' | 'questoes'
+  tipo: 'leitura' | 'video' | 'questoes' | 'simulado'
   atividadeIndex: number
   paginaInterna: number
   html: string // Para leitura: fragmento HTML | Para video: URL | Para questoes: questaoId
@@ -16,7 +17,7 @@ type PaginaInfo = {
 type Atividade = {
   id: string
   titulo: string
-  tipo: 'leitura' | 'video' | 'questoes'
+  tipo: 'leitura' | 'video' | 'questoes' | 'simulado'
   conteudoTexto?: string | null
   videoUrl?: string | null
   questaoIds?: string[]
@@ -86,6 +87,20 @@ export function PaginaRenderer({
         trilhaId={trilhaId}
         caminhoId={caminhoId}
         atividadeId={atividade.id}
+        onMarcarConcluida={onMarcarConcluida}
+      />
+    )
+  }
+
+  if (pagina.tipo === 'simulado') {
+    return (
+      <PaginaSimulado
+        key={`simulado-${atividade.id}`}
+        atividadeId={pagina.html} // html contém o atividadeId
+        trilhaId={trilhaId}
+        caminhoId={caminhoId}
+        blocoId={blocoId}
+        atividadeTitulo={atividade.titulo}
         onMarcarConcluida={onMarcarConcluida}
       />
     )

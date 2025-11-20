@@ -115,7 +115,6 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
     // IMPORTANTE: Este useEffect só reseta o estado se a questão realmente mudou
     // Se for a mesma questão sendo remontada, não reseta nada - deixa a restauração acontecer
     if (questaoIdRef.current !== questao.id) {
-      console.log(`[QuestaoCardBloco] 🔄 Questão mudou de ${questaoIdRef.current} para ${questao.id} - resetando estado`);
       questaoIdRef.current = questao.id;
       estadoRestauradoRef.current = false;
       // Resetar todos os estados quando a questão muda
@@ -495,21 +494,14 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
         timestamp: Date.now(),
       };
 
-      console.log(`[QuestaoCardBloco] 💾 Salvando estado para questão ${questao.id}:`, {
-        temFeedback: !!estado.feedback,
-        selectedIndex: estado.selectedIndex,
-        storageKey
-      });
-
       await AsyncStorage.setItem(storageKey, JSON.stringify(estado));
-      console.log(`[QuestaoCardBloco] ✅ Estado salvo com sucesso para questão ${questao.id}`);
 
       // Também salva flag simples para compatibilidade
       if (feedback?.status === "ok" && questaoIdRef.current === questao.id) {
         await AsyncStorage.setItem(respostaKey, JSON.stringify({ respondido: true }));
       }
     } catch (error) {
-      console.error(`[QuestaoCardBloco] ❌ Erro ao salvar estado para questão ${questao.id}:`, error);
+      // Ignora erros ao salvar estado
     }
   }, [
     storageKey,
@@ -536,10 +528,7 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
 
   // Restaurar estado do AsyncStorage quando componente monta ou questao.id muda
   // Restaurar estado do AsyncStorage quando componente monta ou questao.id muda
-  // Este useEffect DEVE executar sempre que o componente é montado
   useEffect(() => {
-    console.log(`[QuestaoCardBloco] 🎯 useEffect de restauração executado para questão ${questao.id}`);
-    
     // Sempre tenta restaurar quando o componente monta ou quando questao.id muda
     // IMPORTANTE: Resetar o flag ANTES de tentar restaurar para garantir que sempre tenta
     estadoRestauradoRef.current = false;
@@ -550,31 +539,20 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
         const refazerKey = `@geniusfactory:refazer-bloco-${blocoId}`;
         const emModoRefazer = await AsyncStorage.getItem(refazerKey);
         
-        console.log(`[QuestaoCardBloco] 🔍 Verificando modo refazer para questão ${questao.id}: ${emModoRefazer}`);
-        
         // Se está em modo refazer, NÃO restaura nada
         if (emModoRefazer === 'true') {
-          console.log(`[QuestaoCardBloco] 🔄 Bloco em modo REFAZER - não restaurando estado`);
           estadoRestauradoRef.current = true;
           return;
         }
         
         const raw = await AsyncStorage.getItem(storageKey);
-        console.log(`[QuestaoCardBloco] 📦 Estado salvo encontrado para questão ${questao.id}:`, raw ? 'sim' : 'não');
         
         if (!raw) {
-          console.log(`[QuestaoCardBloco] ⚠️ Nenhum estado salvo encontrado para questão ${questao.id}`);
           estadoRestauradoRef.current = true;
           return;
         }
 
         const estadoSalvo: EstadoPersistido = JSON.parse(raw);
-        console.log(`[QuestaoCardBloco] ✅ Restaurando estado para questão ${questao.id}:`, {
-          temFeedback: !!estadoSalvo.feedback,
-          selectedIndex: estadoSalvo.selectedIndex,
-          temRespostas: Object.keys(estadoSalvo).length,
-          estadoCompleto: estadoSalvo
-        });
 
         // Restaurar feedback (indica se foi respondido)
         if (estadoSalvo.feedback) {
@@ -633,7 +611,6 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
 
         estadoRestauradoRef.current = true;
       } catch (error) {
-        console.warn('[QuestaoCardBloco] Erro ao restaurar estado:', error);
         estadoRestauradoRef.current = true;
       }
     }
@@ -656,17 +633,15 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
             // Chama o callback para marcar como concluída
             onMarcarConcluidaRef.current();
             // Marca a flag para evitar chamar novamente
-            AsyncStorage.setItem(foiMarcadaKey, "true").catch((err) => {
-              console.warn('[QuestaoCardBloco] Erro ao salvar flag marcada:', err);
+            AsyncStorage.setItem(foiMarcadaKey, "true").catch(() => {
+              // Ignora erros ao salvar flag
             });
           }
-        }).catch((err) => {
-          console.warn('[QuestaoCardBloco] Erro ao verificar flag marcada:', err);
+        }).catch(() => {
           // Se houver erro, tenta chamar mesmo assim para garantir que a página seja marcada
           onMarcarConcluidaRef.current();
         });
-      }).catch((err) => {
-        console.warn('[QuestaoCardBloco] Erro ao salvar estado:', err);
+      }).catch(() => {
         // Mesmo com erro ao salvar, tenta marcar como concluída
         const foiMarcadaKey = `@geniusfactory:marcada-${blocoId}-${questao.id}`;
         AsyncStorage.getItem(foiMarcadaKey).then((marcada) => {

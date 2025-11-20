@@ -21,7 +21,7 @@ import { ModalConquistas } from './ModalConquistas'
 import { PaginaRenderer } from './PaginaRenderer'
 
 type PaginaInfo = {
-  tipo: 'leitura' | 'video' | 'questoes'
+  tipo: 'leitura' | 'video' | 'questoes' | 'simulado'
   atividadeIndex: number
   paginaInterna: number
   html: string
@@ -34,9 +34,6 @@ export function BlocoContainer() {
     blocoId: string
   }>()
   const router = useRouter()
-
-  console.log('📦 BlocoContainer montado!')
-  console.log('   Parâmetros recebidos:', { id, caminhoId, blocoId })
 
   // Estados principais
   const [loading, setLoading] = useState(true)
@@ -76,24 +73,16 @@ export function BlocoContainer() {
       const refazerKey = `@geniusfactory:refazer-bloco-${blocoId}`;
       const emModoRefazer = await AsyncStorage.getItem(refazerKey);
       
-      console.log(`[BlocoContainer.restaurarPosicao] 🔍 Modo refazer: ${emModoRefazer}`);
-      
       // Se está em modo refazer, NÃO restaura nada - começa do zero
       if (emModoRefazer === 'true') {
-        console.log(`[BlocoContainer.restaurarPosicao] 🔄 Bloco em modo REFAZER - iniciando do zero`);
-        console.log(`[BlocoContainer.restaurarPosicao] 📊 Setando ${totalPaginas} páginas como não concluídas`);
-        
         // ✅ CRÍTICO: Remove a flag IMEDIATAMENTE após detectar
         // Isso permite que navegações futuras restaurem estados salvos NESTA sessão
         await AsyncStorage.removeItem(refazerKey);
-        console.log(`[BlocoContainer.restaurarPosicao] ✅ Flag de refazer removida - navegações futuras restaurarão estados`);
         
         setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false));
         setPosicaoRestaurada(0);
         return;
       }
-      
-      console.log(`[BlocoContainer.restaurarPosicao] ➡️ Modo normal - tentando restaurar estado`);
       
       const posKey = `@geniusfactory:pos-bloco-${blocoId}`;
       const doneKey = `@geniusfactory:done-bloco-${blocoId}`;
@@ -158,7 +147,7 @@ export function BlocoContainer() {
             }
           }
         } catch (e) {
-          console.warn('[restaurarPosicao] Erro ao processar done:', e);
+          // Ignora erros de parsing
         }
       }
   
@@ -177,7 +166,6 @@ export function BlocoContainer() {
   
       setPaginasConcluidas(concluidas);
     } catch (error) {
-      console.warn('[restaurarPosicao] Erro:', error);
       setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false));
       setPosicaoRestaurada(0);
     }
@@ -196,41 +184,29 @@ export function BlocoContainer() {
   // Função de carregamento dos dados do bloco
   const carregarDados = useCallback(async (silencioso = false) => {
     if (!id || !caminhoId || !blocoId) {
-      console.error('❌ IDs faltando:', { id, caminhoId, blocoId })
       return
     }
 
     try {
-      console.log('🔄 Iniciando carregamento do bloco...', silencioso ? '(silencioso)' : '')
-      console.log('   IDs:', { id, caminhoId, blocoId })
-      
       if (!silencioso) {
         setLoading(true)
       }
-      
-      console.log('📡 Chamando obterBloco...')
 
       // Busca dados do bloco
       const dados = await obterBloco(id, caminhoId, blocoId)
-      console.log('✅ Dados recebidos:', dados)
 
       setAtividades(dados.atividades)
       setCaminho(dados.caminho)
       setTrilhaNome(dados.trilha?.nome || '')
-      console.log('📝 Atividades:', dados.atividades.length)
 
       // Busca questões em lote
       const todasQuestoesIds = dados.atividades
         .filter(a => a.tipo === 'questoes')
         .flatMap(a => a.questaoIds || [])
 
-      console.log('❓ Total de questões:', todasQuestoesIds.length)
-
       let questoesMapaFinal: Record<string, any> = {}
       if (todasQuestoesIds.length > 0) {
-        console.log('📡 Buscando questões...')
         const questoes = await buscarQuestoesLote(todasQuestoesIds)
-        console.log('✅ Questões recebidas:', questoes.length)
         questoes.forEach(q => {
           questoesMapaFinal[q.id] = q
         })
@@ -238,19 +214,12 @@ export function BlocoContainer() {
       }
 
       // Gera páginas navegáveis
-      console.log('📄 Gerando páginas...')
       const paginasGeradas = gerarPaginas(dados.atividades)
-      console.log('✅ Páginas geradas:', paginasGeradas.length)
       setPaginas(paginasGeradas)
 
       // Restaura posição do AsyncStorage (agora com verificações individuais)
-      console.log('💾 Restaurando posição...')
       await restaurarPosicao(blocoId, paginasGeradas.length, paginasGeradas, questoesMapaFinal)
-      console.log('✅ Carregamento concluído!')
     } catch (error: any) {
-      console.error('❌ ERRO ao carregar bloco:', error)
-      console.error('   Mensagem:', error.message)
-      console.error('   Stack:', error.stack)
       if (!silencioso) {
         Alert.alert('Erro', error.message || 'Não foi possível carregar o bloco')
         router.back()
@@ -272,7 +241,6 @@ export function BlocoContainer() {
   useFocusEffect(
     useCallback(() => {
       if (initialLoadedRef.current) {
-        console.log('👁️ BlocoContainer ganhou foco - recarregando dados...')
         carregarDados(true)
       }
     }, [carregarDados])
@@ -603,11 +571,8 @@ export function BlocoContainer() {
  */
 function gerarPaginas(atividades: any[]): PaginaInfo[] {
   const paginas: PaginaInfo[] = []
-
   atividades.forEach((atividade, idx) => {
     if (atividade.tipo === 'leitura' && atividade.conteudoTexto) {
-      // Por enquanto, uma página por atividade de leitura
-      // TODO: Dividir em múltiplas páginas se necessário
       paginas.push({
         tipo: 'leitura',
         atividadeIndex: idx,
@@ -630,6 +595,13 @@ function gerarPaginas(atividades: any[]): PaginaInfo[] {
           html: questaoId,
         })
       })
+    } else if (atividade.tipo === 'simulado') { // ✅ NOVO
+      paginas.push({
+        tipo: 'simulado',
+        atividadeIndex: idx,
+        paginaInterna: 0,
+        html: atividade.id, // atividadeId
+      })
     }
   })
 
@@ -645,9 +617,9 @@ async function limparPersistencia(blocoId: string) {
       `@geniusfactory:pos-bloco-${blocoId}`,
       `@geniusfactory:done-bloco-${blocoId}`,
     ])
-  } catch (error) {
-    console.warn('[limparPersistencia] Erro:', error)
-  }
+    } catch (error) {
+      // Ignora erros ao limpar persistência
+    }
 }
 
 const styles = StyleSheet.create({

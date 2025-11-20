@@ -1,10 +1,13 @@
 // app/(app)/simulados/[id]/resultado.tsx
 import VisualizarQuestaoResultadoSheet from "@/components/sheets/VisualizarQuestaoSimuladoSheet";
+import { api } from "@/src/lib/api";
+import { invalidarCacheCaminho } from "@/src/services/caminhoService";
 import { obterResultadoSimulado, refazerSimulado, ResultadoQuestao } from "@/src/services/simuladosResultadoService";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from "react-native-svg";
 
@@ -68,6 +71,15 @@ export default function ResultadoScreen() {
   const [openSheet, setOpenSheet] = React.useState(false);
   const [idxAtual, setIdxAtual] = React.useState<number>(0);
 
+  // ✅ NOVO: Contexto de trilha
+  const [contextoTrilha, setContextoTrilha] = React.useState<{
+    trilhaId: string;
+    caminhoId: string;
+    blocoId: string;
+    atividadeId: string;
+  } | null>(null);
+  const [encerrando, setEncerrando] = React.useState(false);
+
   const idsOrdenados = React.useMemo(() => {
     if (!data?.questoes) return [];
     return [...data.questoes]
@@ -84,6 +96,22 @@ export default function ResultadoScreen() {
         const r = await obterResultadoSimulado(String(id));
         if (!active) return;
         setData(r);
+        
+        // ✅ ADICIONAR ESTE BLOCO
+        const contextoKey = `@geniusfactory:simulado-contexto-${id}`;
+        const contextoRaw = await AsyncStorage.getItem(contextoKey);
+        
+        if (contextoRaw) {
+          try {
+            const contexto = JSON.parse(contextoRaw);
+            setContextoTrilha(contexto);
+            console.log('[ResultadoSimulado] Contexto de trilha detectado:', contexto);
+          } catch (e) {
+            console.warn('[ResultadoSimulado] Erro ao parsear contexto:', e);
+          }
+        }
+        // ✅ FIM DO BLOCO
+        
       } catch (e) {
         console.error(e);
         alert("Não foi possível carregar o resultado.");
@@ -121,13 +149,96 @@ export default function ResultadoScreen() {
   const coinsExtra = Math.max(coinsTarget - coinsBase, 0);
   const coinsReward = temDissertPend ? coinsBase : coinsTarget;
 
+  // ✅ NOVO: Encerrar simulado de trilha
+  async function encerrarSimuladoTrilha() {
+    if (!contextoTrilha) return;
+    
+    try {
+      setEncerrando(true);
+      
+      // Chama API de concluir
+      const { data: resposta } = await api.post<{
+        ok: boolean;
+        caminhoId: string;
+        conquistasDesbloqueadas: Array<{
+          titulo: string;
+          nivel: number;
+          categoria: string;
+          imagemUrl: string;
+        }>;
+      }>(
+        `/mobile/v1/trilhas/${contextoTrilha.trilhaId}/simulados/${contextoTrilha.atividadeId}/concluir`
+      );
+
+      // Limpa contexto do AsyncStorage
+      await AsyncStorage.removeItem(`@geniusfactory:simulado-contexto-${id}`);
+      
+      // Invalida cache do caminho
+      await invalidarCacheCaminho(contextoTrilha.trilhaId, contextoTrilha.caminhoId);
+      
+      // TODO: Mostrar modal de conquistas se houver
+      if (resposta.conquistasDesbloqueadas?.length > 0) {
+        console.log('[ResultadoSimulado] Conquistas desbloqueadas:', resposta.conquistasDesbloqueadas);
+      }
+
+      // Navega para o caminho
+      router.replace(`/trilhas/${contextoTrilha.trilhaId}/caminhos/${contextoTrilha.caminhoId}`);
+    } catch (error: any) {
+      console.error('[ResultadoSimulado] Erro ao encerrar:', error);
+      Alert.alert('Erro', error?.response?.data?.error || 'Não foi possível encerrar o simulado');
+    } finally {
+      setEncerrando(false);
+    }
+  }
+
+  // ✅ NOVO: Botão "Encerrar" adaptado
+  function renderBotaoEncerrar() {
+    if (!contextoTrilha) {
+      // Modo Q-Bank normal: vai para dashboard
+      return (
+        <TouchableOpacity
+          style={styles.footerPrimary}
+          onPress={() => router.replace("/dashboard")}
+        >
+          <Text style={styles.footerPrimaryText}>Encerrar</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    // Modo Trilha: chama API de concluir
+    return (
+      <TouchableOpacity
+        style={[styles.footerPrimary, encerrando && { opacity: 0.6 }]}
+        onPress={encerrarSimuladoTrilha}
+        disabled={encerrando}
+      >
+        {encerrando ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <Text style={styles.footerPrimaryText}>Encerrar</Text>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity 
+          onPress={() => {
+            if (contextoTrilha) {
+              router.replace(`/trilhas/${contextoTrilha.trilhaId}/caminhos/${contextoTrilha.caminhoId}`);
+            } else {
+              router.back();
+            }
+          }} 
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={22} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>Simulado Genius Q-Bank</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {contextoTrilha ? 'Simulado da Trilha' : 'Simulado Genius Q-Bank'}
+        </Text>
         <View style={{ width: 22 }} />
       </View>
 
@@ -184,12 +295,8 @@ export default function ResultadoScreen() {
             <Text style={styles.footerOutlineText}>Refazer Simulado</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.footerPrimary}
-            onPress={() => router.replace("/dashboard")}
-          >
-            <Text style={styles.footerPrimaryText}>Encerrar</Text>
-          </TouchableOpacity>
+          {/* ✅ SUBSTITUIR O BOTÃO "Encerrar" POR ESTA CHAMADA */}
+          {renderBotaoEncerrar()}
         </View>
       </ScrollView>
 

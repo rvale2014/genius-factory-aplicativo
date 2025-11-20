@@ -55,6 +55,47 @@ export default function CaminhoScreen() {
   // Mantém um Set de blocos que estão em modo "refazer" (AsyncStorage limpo, mas backend ainda indica concluído)
   const [blocosEmRefazer, setBlocosEmRefazer] = useState<Set<string>>(new Set());
 
+  // ✅ NOVO: Refs para controle de scroll
+  const scrollViewRef = useRef<ScrollView>(null);
+  const blocoPosicoes = useRef<Record<string, number>>({});
+
+  /**
+   * Restaura o scroll para o bloco de referência quando retorna de "fora"
+   */
+  const restaurarScrollParaBlocoReferencia = useCallback(async (
+    caminhoId: string,
+    dados: TrilhasCaminhoResponse
+  ) => {
+    try {
+      const chave = `@geniusfactory:caminho-bloco-ref-${caminhoId}`;
+      const blocoRefId = await AsyncStorage.getItem(chave);
+      
+      if (!blocoRefId) {
+        console.log('[restaurarScroll] ℹ️ Sem bloco de referência salvo');
+        return;
+      }
+      
+      console.log(`[restaurarScroll] 📍 Bloco de referência: ${blocoRefId}`);
+      
+      // Aguarda um pouco para garantir que os blocos foram renderizados e posições capturadas
+      setTimeout(() => {
+        const posicaoY = blocoPosicoes.current[blocoRefId];
+        
+        if (posicaoY !== undefined) {
+          console.log(`[restaurarScroll] ⬇️ Fazendo scroll para Y=${posicaoY}`);
+          scrollViewRef.current?.scrollTo({ 
+            y: Math.max(0, posicaoY - 100), // Offset de 100px para não ficar colado no topo
+            animated: true 
+          });
+        } else {
+          console.log(`[restaurarScroll] ⚠️ Posição do bloco ${blocoRefId} ainda não capturada`);
+        }
+      }, 300); // Aguarda 300ms para garantir que o layout foi calculado
+    } catch (error) {
+      console.error('[restaurarScroll] ❌ Erro:', error);
+    }
+  }, []);
+
   // Função de recarregamento silencioso (sem mostrar loading)
   const recarregarSilencioso = useCallback(async () => {
     if (!trilhaId || !caminhoId) return;
@@ -73,11 +114,14 @@ export default function CaminhoScreen() {
         }))
       });
       setData(dados);
+      
+      // ✅ NOVO: Restaurar scroll para bloco de referência quando retorna de "fora"
+      await restaurarScrollParaBlocoReferencia(caminhoId, dados);
     } catch (e: any) {
       // Erro silencioso - não mostra mensagem para não interromper a experiência
       console.error('[recarregarSilencioso] ❌ Erro ao recarregar caminho:', e);
     }
-  }, [trilhaId, caminhoId]);
+  }, [trilhaId, caminhoId, restaurarScrollParaBlocoReferencia]);
 
   // Carregamento inicial
   useEffect(() => {
@@ -154,6 +198,53 @@ export default function CaminhoScreen() {
   }, [data]);
 
   /**
+   * Salva qual bloco é a "referência" para retorno futuro
+   * Lógica: próximo bloco não concluído OU último bloco se todos concluídos
+   */
+  const salvarBlocoReferencia = useCallback(async () => {
+    if (!data || !caminhoId) return;
+    
+    try {
+      // Encontra o próximo bloco não concluído (considerando blocos em refazer)
+      let blocoReferencia: string | null = null;
+      
+      for (const bloco of data.blocos) {
+        const todasAtividadesConcluidas = bloco.atividades.every(a => a.concluido);
+        const estaEmRefazer = blocosEmRefazer.has(bloco.id);
+        const isConcluidoFinal = todasAtividadesConcluidas && !estaEmRefazer;
+        
+        if (!isConcluidoFinal) {
+          blocoReferencia = bloco.id;
+          console.log(`[salvarBlocoRef] 🎯 Próximo bloco a fazer: ${bloco.id} (${bloco.titulo})`);
+          break;
+        }
+      }
+      
+      // Se todos estão concluídos, usa o último bloco
+      if (!blocoReferencia && data.blocos.length > 0) {
+        blocoReferencia = data.blocos[data.blocos.length - 1].id;
+        console.log(`[salvarBlocoRef] 🏁 Todos concluídos, usando último bloco: ${blocoReferencia}`);
+      }
+      
+      if (blocoReferencia) {
+        const chave = `@geniusfactory:caminho-bloco-ref-${caminhoId}`;
+        await AsyncStorage.setItem(chave, blocoReferencia);
+        console.log(`[salvarBlocoRef] ✅ Bloco de referência salvo: ${blocoReferencia}`);
+      }
+    } catch (error) {
+      console.error('[salvarBlocoRef] ❌ Erro:', error);
+    }
+  }, [data, caminhoId, blocosEmRefazer]);
+
+  /**
+   * Captura a posição Y de cada bloco quando é renderizado
+   */
+  const handleBlocoLayout = useCallback((blocoId: string, y: number) => {
+    blocoPosicoes.current[blocoId] = y;
+    console.log(`[handleBlocoLayout] 📐 Bloco ${blocoId} em Y=${y}`);
+  }, []);
+
+  /**
    * Limpa todo o AsyncStorage relacionado a um bloco específico
    */
   const limparPersistenciaBloco = useCallback(async (blocoId: string) => {
@@ -207,6 +298,15 @@ export default function CaminhoScreen() {
 
   const handlePressBloco = useCallback(async (blocoId: string, isConcluido: boolean) => {
     console.log(`[handlePressBloco] 🖱️ Bloco clicado: ${blocoId}, isConcluido: ${isConcluido}`);
+    
+    // ✅ NOVO: Remove a referência ao entrar no bloco para evitar scroll indesejado
+    try {
+      const chave = `@geniusfactory:caminho-bloco-ref-${caminhoId}`;
+      await AsyncStorage.removeItem(chave);
+      console.log(`[handlePressBloco] 🗑️ Referência de scroll removida`);
+    } catch (error) {
+      console.error('[handlePressBloco] ❌ Erro ao remover referência:', error);
+    }
     
     // Se o bloco está concluído, mostra confirmação
     if (isConcluido) {
@@ -269,6 +369,13 @@ export default function CaminhoScreen() {
       console.log('[CaminhoScreen] 📊 Estado atual do blocosEmRefazer:', Array.from(blocosEmRefazer));
     }
   }, [data, blocosEmRefazer]);
+
+  // Salva a referência sempre que os dados mudam
+  useEffect(() => {
+    if (data && data.blocos.length > 0) {
+      salvarBlocoReferencia();
+    }
+  }, [data, blocosEmRefazer, salvarBlocoReferencia]);
 
   if (loading) {
     return (
@@ -356,6 +463,20 @@ export default function CaminhoScreen() {
   } = getMateriaVisualConfig(data.trilha.materiaNome);
   const progressOffset = PROGRESS_CIRC * (1 - percentualGeral / 100);
 
+  // Verifica se o caminho está 100% concluído
+  const caminhoConcluido = percentualGeral === 100 && blocosEmRefazer.size === 0;
+  
+  // Encontra o próximo caminho
+  const proximoCaminho = caminhoConcluido
+    ? data.trilha.caminhos.find(c => c.ordem === data.caminho.ordem + 1)
+    : null;
+
+  const handleIrParaProximoCaminho = () => {
+    if (proximoCaminho) {
+      router.replace(`/trilhas/${trilhaId}/caminhos/${proximoCaminho.id}`);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Background com Gradiente */}
@@ -376,7 +497,7 @@ export default function CaminhoScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.push('/trilhas')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
@@ -384,13 +505,7 @@ export default function CaminhoScreen() {
           <Text style={styles.topBarTitle} numberOfLines={1}>
             {data.trilha.titulo}
           </Text>
-          <TouchableOpacity
-            style={styles.infoButton}
-            onPress={() => router.push('/trilhas')}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ width: 44 }} />
         </View>
 
         {/* Header Caminho */}
@@ -406,35 +521,47 @@ export default function CaminhoScreen() {
             <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <View style={styles.progressCircle}>
-            <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
-              <Circle
-                cx={PROGRESS_SIZE / 2}
-                cy={PROGRESS_SIZE / 2}
-                r={PROGRESS_RADIUS}
-                stroke="#FFFFFF"
-                strokeWidth={PROGRESS_STROKE}
-                fill="none"
-              />
-              <Circle
-                cx={PROGRESS_SIZE / 2}
-                cy={PROGRESS_SIZE / 2}
-                r={PROGRESS_RADIUS}
-                stroke="#1CC5A5"
-                strokeWidth={PROGRESS_STROKE}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
-                strokeDashoffset={progressOffset}
-                transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
-              />
-            </Svg>
-            <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
-          </View>
+          {caminhoConcluido && proximoCaminho ? (
+            <TouchableOpacity
+              style={styles.proximoCaminhoSetaHeader}
+              onPress={handleIrParaProximoCaminho}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.progressCircle}>
+              <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
+                <Circle
+                  cx={PROGRESS_SIZE / 2}
+                  cy={PROGRESS_SIZE / 2}
+                  r={PROGRESS_RADIUS}
+                  stroke="#FFFFFF"
+                  strokeWidth={PROGRESS_STROKE}
+                  fill="none"
+                />
+                <Circle
+                  cx={PROGRESS_SIZE / 2}
+                  cy={PROGRESS_SIZE / 2}
+                  r={PROGRESS_RADIUS}
+                  stroke="#1CC5A5"
+                  strokeWidth={PROGRESS_STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
+                  strokeDashoffset={progressOffset}
+                  transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
+                />
+              </Svg>
+              <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
+            </View>
+          )}
         </View>
 
         {/* Caminho de Blocos (estilo Duolingo) */}
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -449,6 +576,10 @@ export default function CaminhoScreen() {
                   styles.nodeContainer,
                   showConnector && styles.nodeWithConnector,
                 ]}
+                onLayout={(event) => {
+                  const { y } = event.nativeEvent.layout;
+                  handleBlocoLayout(bloco.id, y);
+                }}
               >
                 <View
                   style={[
@@ -637,11 +768,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
   },
-  infoButton: {
-    width: 44,
-    height: 44,
+  proximoCaminhoSetaHeader: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#1CC5A5',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
   },
   scrollView: {
     flex: 1,
