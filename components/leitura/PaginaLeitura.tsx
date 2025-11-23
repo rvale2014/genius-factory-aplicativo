@@ -1,43 +1,44 @@
 // components/blocos/leitura/PaginaLeitura.tsx
 
-import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import RenderHTML from 'react-native-render-html';
+import React, { useEffect, useMemo } from 'react'
+import { StyleSheet, useWindowDimensions, View } from 'react-native'
+import RenderHTML from 'react-native-render-html'
+import { AudioPlayerMobile } from './AudioPlayerMobile'
 
 type Props = {
   htmlFragmento: string
   atividadeId: string
   atividadeTitulo: string
+  audioUrl?: string | null
   onMarcarConcluida: () => void
+  onAudioEnded?: () => void
 }
 
 export function PaginaLeitura({
   htmlFragmento,
   atividadeId,
   atividadeTitulo,
+  audioUrl,
   onMarcarConcluida,
+  onAudioEnded,
 }: Props) {
   const { width } = useWindowDimensions()
   
   // Marca como concluída quando a página é visualizada
-  // Reset quando htmlFragmento ou atividadeId mudar (nova página)
   useEffect(() => {
     onMarcarConcluida()
   }, [htmlFragmento, atividadeId, onMarcarConcluida])
   
-  // ✅ SOLUÇÃO 1: Memoizar contentWidth
   const contentWidth = useMemo(() => {
     return Math.min(width, 600) - 32
   }, [width])
 
-  // ✅ SOLUÇÃO 2: Memoizar htmlSource
   const htmlSource = useMemo(() => ({
     html: htmlFragmento?.trim() 
       ? htmlFragmento 
       : '<p>Conteúdo indisponível.</p>',
   }), [htmlFragmento])
 
-  // ✅ SOLUÇÃO 3: Memoizar tagsStyles (objeto estático)
   const tagsStyles = useMemo(() => ({
     body: styles.body,
     p: styles.paragraph,
@@ -57,12 +58,21 @@ export function PaginaLeitura({
     a: styles.link,
   }), [])
 
-  // ✅ SOLUÇÃO 4: Memoizar defaultTextProps e systemFonts
   const defaultTextProps = useMemo(() => ({ selectable: true }), [])
   const systemFonts = useMemo(() => ['Inter-Regular', 'Inter-Medium', 'Inter-Bold'], [])
 
   return (
     <View style={styles.container}>
+      {/* Player de áudio (se disponível) */}
+      {audioUrl && (
+        <View style={styles.audioContainer}>
+          <AudioPlayerMobile 
+            audioUrl={audioUrl} 
+            onEnded={onAudioEnded}
+          />
+        </View>
+      )}
+
       {/* Card de leitura */}
       <View style={styles.card}>
         <RenderHTML
@@ -78,10 +88,12 @@ export function PaginaLeitura({
   )
 }
 
-// Estilos permanecem iguais...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  audioContainer: {
+    marginBottom: 16,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -187,18 +199,5 @@ const styles = StyleSheet.create({
   link: {
     color: '#7C3AED',
     textDecorationLine: 'underline',
-  },
-  footer: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#F59E0B',
-  },
-  footerText: {
-    fontSize: 13,
-    color: '#92400E',
-    fontFamily: 'Inter-Regular',
   },
 })

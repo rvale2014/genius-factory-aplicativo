@@ -85,18 +85,18 @@ function ImageWithFallback({
   };
 
   if (!finalUrl || (imageError && !isRenewing)) {
-    return <Image source={placeholder} style={style} resizeMode="cover" />;
+    return <Image source={placeholder} style={style} resizeMode="contain" />;
   }
 
   if (isRenewing) {
-    return <Image source={placeholder} style={style} resizeMode="cover" />;
+    return <Image source={placeholder} style={style} resizeMode="contain" />;
   }
 
   return (
     <Image
       source={{ uri: finalUrl }}
       style={style}
-      resizeMode="cover"
+      resizeMode="contain"
       onError={(error) => {
         const errorMsg = error.nativeEvent?.error || 'Unknown error';
         const is403 = errorMsg.includes('403') || errorMsg.includes('Forbidden');
@@ -195,8 +195,8 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   avatarImage: {
-    width: 64,
-    height: 64,
+    width: 70,
+    height: 70,
     borderRadius: 32,
     backgroundColor: 'transparent',
   },

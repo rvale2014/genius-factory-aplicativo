@@ -374,42 +374,62 @@ export default function DashboardScreen() {
             <Text style={styles.desempenhoTitle}>Desempenho médio</Text>
 
             <View style={styles.desempenhoRow}>
-              {/* Gráfico Gauge */}
+              {/* Gráfico Gauge ou Mensagem */}
               <View style={styles.gaugeCard}>
-                <GaugeChart
-                  value={data.desempenhoGeral.alunoPct}
-                  size={120}
-                  strokeWidth={12}
-                  gradientStart="#a855f7"
-                  gradientEnd="#f472b6"
-                  backgroundColor="rgba(168, 85, 247, 0.12)"
-                  label="Taxa de acertos"
-                  fontSize={20}
-                  fontFamily={getInterFont('700')}
-                />
+                {data.desempenhoGeral.alunoPct === 0 ? (
+                  <View style={styles.semQuestoesContainer}>
+                    <Text style={styles.semQuestoesText}>
+                      Você ainda não resolveu nenhuma questão!
+                    </Text>
+                  </View>
+                ) : (
+                  <GaugeChart
+                    value={data.desempenhoGeral.alunoPct}
+                    size={120}
+                    strokeWidth={12}
+                    gradientStart="#a855f7"
+                    gradientEnd="#f472b6"
+                    backgroundColor="rgba(168, 85, 247, 0.12)"
+                    label="Taxa de acertos"
+                    fontSize={20}
+                    fontFamily={getInterFont('700')}
+                  />
+                )}
               </View>
 
               {/* Indicador de Média */}
               <View style={styles.mediaCard}>
-                <View style={styles.mediaIconContainer}>
-                  {data.desempenhoGeral.acimaDaMedia ? (
-                    <TrendingUp size={24} color="#14b8a6" strokeWidth={2} />
-                  ) : (
-                    <TrendingDown size={24} color="#b00020" strokeWidth={2} />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.mediaPercentual,
-                    { color: data.desempenhoGeral.acimaDaMedia ? '#14b8a6' : '#b00020' },
-                  ]}
-                >
-                  {data.desempenhoGeral.deltaPct > 0 ? '+' : ''}
-                  {data.desempenhoGeral.deltaPct.toFixed(1)}%
-                </Text>
-                <Text style={styles.mediaLabel}>
-                  {data.desempenhoGeral.acimaDaMedia ? 'Acima da média' : 'Abaixo da média'}
-                </Text>
+                {data.desempenhoGeral.alunoPct !== 0 ? (
+                  <>
+                    <View style={styles.mediaIconContainer}>
+                      {data.desempenhoGeral.acimaDaMedia ? (
+                        <TrendingUp size={24} color="#14b8a6" strokeWidth={2} />
+                      ) : (
+                        <TrendingDown size={24} color="#b00020" strokeWidth={2} />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.mediaPercentual,
+                        { color: data.desempenhoGeral.acimaDaMedia ? '#14b8a6' : '#b00020' },
+                      ]}
+                    >
+                      {data.desempenhoGeral.deltaPct > 0 ? '+' : ''}
+                      {data.desempenhoGeral.deltaPct.toFixed(1)}%
+                    </Text>
+                    <Text style={styles.mediaLabel}>
+                      {data.desempenhoGeral.acimaDaMedia ? 'Acima da média' : 'Abaixo da média'}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.mediaIconContainer} />
+                    <Text style={[styles.mediaPercentual, { color: '#6B7280' }]}>
+                      —
+                    </Text>
+                    <View style={{ height: 16 }} />
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -869,6 +889,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    minHeight: 120,
+  },
+  semQuestoesContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  semQuestoesText: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontFamily: 'Inter-Medium',
+    lineHeight: 18,
   },
   mediaCard: {
     flex: 1,

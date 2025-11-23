@@ -125,7 +125,7 @@ export default function ResultadoScreen() {
               typeof contexto.atividadeId === 'string'
             ) {
               console.log('[ResultadoSimulado] ✅ Contexto válido! Modo trilha ativado');
-              setContextoTrilha(contexto);
+            setContextoTrilha(contexto);
             } else {
               console.warn('[ResultadoSimulado] ❌ Contexto inválido, removendo:', contexto);
               await AsyncStorage.removeItem(contextoKey);

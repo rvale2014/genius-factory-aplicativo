@@ -59,7 +59,7 @@ export function ModalConquistas({ visible, conquistas, onClose }: Props) {
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerBadge}>
-                <Ionicons name="trophy" size={24} color="#F59E0B" />
+                <Ionicons name="trophy" size={20} color="#F59E0B" />
               </View>
               <Text style={styles.headerTitle}>Conquista Desbloqueada!</Text>
               {conquistas.length > 1 && (
@@ -79,7 +79,7 @@ export function ModalConquistas({ visible, conquistas, onClose }: Props) {
                 />
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Ionicons name="trophy" size={80} color="#F59E0B" />
+                  <Ionicons name="trophy" size={60} color="#F59E0B" />
                 </View>
               )}
             </View>
@@ -108,7 +108,7 @@ export function ModalConquistas({ visible, conquistas, onClose }: Props) {
               </Text>
               <Ionicons
                 name={temMais ? 'arrow-forward' : 'checkmark'}
-                size={20}
+                size={16}
                 color="#FFFFFF"
               />
             </TouchableOpacity>
@@ -133,10 +133,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    width: Math.min(SCREEN_WIDTH - 40, 400),
+    width: Math.min(SCREEN_WIDTH - 40, 360),
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.3,
@@ -146,33 +146,33 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headerBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#111827',
     fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
     fontFamily: 'Inter-Regular',
   },
   imageContainer: {
-    width: 160,
-    height: 160,
-    marginBottom: 24,
+    width: 120,
+    height: 120,
+    marginBottom: 16,
   },
   conquistaImage: {
     width: '100%',
@@ -188,15 +188,15 @@ const styles = StyleSheet.create({
   },
   detalhes: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   titulo: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
-    marginBottom: 12,
-    fontFamily: 'Inter-SemiBold',
+    marginBottom: 10,
+    fontFamily: 'Inter-Medium',
   },
   metaRow: {
     flexDirection: 'row',
@@ -218,17 +218,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#7C3AED',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#30C58E',
   },
   botaoTexto: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Medium',
   },
 })
 

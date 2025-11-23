@@ -301,11 +301,11 @@ export default function CaminhoScreen() {
             router.push(`/simulados/${simuladoMeta.simuladoId}/resultado`);
             return;
           }
-        } catch (error) {
+    } catch (error) {
           // Erro ao buscar metadados do simulado - continua com o fluxo normal
         }
-      }
-      
+    }
+    
       // Se não tem simulado concluído ou não encontrou, mostra confirmação normal
       Alert.alert(
         'Bloco Concluído',
@@ -556,41 +556,41 @@ export default function CaminhoScreen() {
               </TouchableOpacity>
             ) : proximoCaminho ? (
               // Caminho concluído mas trilha não → Próximo caminho
-              <TouchableOpacity
-                style={styles.proximoCaminhoSetaHeader}
-                onPress={handleIrParaProximoCaminho}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            ) : (
+            <TouchableOpacity
+              style={styles.proximoCaminhoSetaHeader}
+              onPress={handleIrParaProximoCaminho}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
               // Círculo de progresso (padrão)
-              <View style={styles.progressCircle}>
-                <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
-                  <Circle
-                    cx={PROGRESS_SIZE / 2}
-                    cy={PROGRESS_SIZE / 2}
-                    r={PROGRESS_RADIUS}
-                    stroke="#FFFFFF"
-                    strokeWidth={PROGRESS_STROKE}
-                    fill="none"
-                  />
-                  <Circle
-                    cx={PROGRESS_SIZE / 2}
-                    cy={PROGRESS_SIZE / 2}
-                    r={PROGRESS_RADIUS}
-                    stroke="#1CC5A5"
-                    strokeWidth={PROGRESS_STROKE}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
-                    strokeDashoffset={progressOffset}
-                    transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
-                  />
-                </Svg>
-                <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
-              </View>
+            <View style={styles.progressCircle}>
+              <Svg width={PROGRESS_SIZE} height={PROGRESS_SIZE}>
+                <Circle
+                  cx={PROGRESS_SIZE / 2}
+                  cy={PROGRESS_SIZE / 2}
+                  r={PROGRESS_RADIUS}
+                  stroke="#FFFFFF"
+                  strokeWidth={PROGRESS_STROKE}
+                  fill="none"
+                />
+                <Circle
+                  cx={PROGRESS_SIZE / 2}
+                  cy={PROGRESS_SIZE / 2}
+                  r={PROGRESS_RADIUS}
+                  stroke="#1CC5A5"
+                  strokeWidth={PROGRESS_STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${PROGRESS_CIRC} ${PROGRESS_CIRC}`}
+                  strokeDashoffset={progressOffset}
+                  transform={`rotate(-90 ${PROGRESS_SIZE / 2} ${PROGRESS_SIZE / 2})`}
+                />
+              </Svg>
+              <Text style={styles.progressCircleText}>{percentualGeral}%</Text>
+            </View>
             )
           )}
         </View>

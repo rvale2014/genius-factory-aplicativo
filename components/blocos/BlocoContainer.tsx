@@ -5,13 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { buscarQuestoesLote, concluirBloco, obterBloco } from '../../src/services/blocoService'
@@ -25,6 +25,7 @@ type PaginaInfo = {
   atividadeIndex: number
   paginaInterna: number
   html: string
+  audioUrl?: string | null // ✅ NOVO
 }
 
 export function BlocoContainer() {
@@ -500,13 +501,13 @@ export function BlocoContainer() {
       >
         {/* Barra de navegação com círculos */}
         {paginaInfo.tipo !== 'simulado' && (
-          <BarraNavegacaoPaginas
-            totalPaginas={paginas.length}
-            paginaAtual={paginaAtual}
-            paginasConcluidas={paginasConcluidas}
-            paginasComErro={paginasComErro}
-            onIrParaPagina={setPaginaAtual}
-          />
+        <BarraNavegacaoPaginas
+          totalPaginas={paginas.length}
+          paginaAtual={paginaAtual}
+          paginasConcluidas={paginasConcluidas}
+          paginasComErro={paginasComErro}
+          onIrParaPagina={setPaginaAtual}
+        />
         )}
 
         {/* Renderiza a página atual */}
@@ -531,7 +532,7 @@ export function BlocoContainer() {
               <Ionicons name="arrow-back" size={20} color="#E91E63" />
             </TouchableOpacity>
           )}
-          
+
           {paginaAtual < paginas.length - 1 && (
             <TouchableOpacity
               onPress={avancar}
@@ -568,15 +569,24 @@ export function BlocoContainer() {
 /**
  * Gera páginas navegáveis a partir das atividades
  */
+/**
+ * Gera páginas navegáveis a partir das atividades
+ * Para leituras: usa as páginas já divididas que vêm da API
+ */
 function gerarPaginas(atividades: any[]): PaginaInfo[] {
   const paginas: PaginaInfo[] = []
+
   atividades.forEach((atividade, idx) => {
-    if (atividade.tipo === 'leitura' && atividade.conteudoTexto) {
+    if (atividade.tipo === 'leitura' && atividade.paginas) {
+      // ✅ NOVO: usa páginas já divididas da API
+      atividade.paginas.forEach((pagina: any, i: number) => {
       paginas.push({
         tipo: 'leitura',
         atividadeIndex: idx,
-        paginaInterna: 0,
-        html: atividade.conteudoTexto,
+          paginaInterna: i,
+          html: pagina.html,
+          audioUrl: pagina.audio?.url || null, // ✅ adiciona audioUrl
+        })
       })
     } else if (atividade.tipo === 'video' && atividade.videoUrl) {
       paginas.push({
@@ -594,12 +604,12 @@ function gerarPaginas(atividades: any[]): PaginaInfo[] {
           html: questaoId,
         })
       })
-    } else if (atividade.tipo === 'simulado') { // ✅ NOVO
+    } else if (atividade.tipo === 'simulado') {
       paginas.push({
         tipo: 'simulado',
         atividadeIndex: idx,
         paginaInterna: 0,
-        html: atividade.id, // atividadeId
+        html: atividade.id,
       })
     }
   })

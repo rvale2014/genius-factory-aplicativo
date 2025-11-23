@@ -1,6 +1,6 @@
 // app/(app)/simulados/[id]/resolver.tsx
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -160,6 +160,7 @@ export default function ResolverSimuladoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [isFocused, setIsFocused] = useState(true); // ✅ ADICIONAR - Para controlar o timer quando a tela perde foco
 
   const [loading, setLoading] = useState(true);
   const [simulado, setSimulado] = useState<SimuladoResumo | null>(null);
@@ -174,78 +175,92 @@ export default function ResolverSimuladoScreen() {
   // Ref para o ScrollView (para controlar scroll ao topo ao mudar de questão)
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Carregar + iniciar
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!id) return;
-      try {
-        setLoading(true);
+  // ✅ Rastreia se a tela está em foco (para controlar o timer)
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => {
+        setIsFocused(false);
+      };
+    }, [])
+  );
 
-        let dados = consumeResolverCache(String(id)) as SimuladoResumo | undefined;
-        if (!dados) {
-          dados = (await getSimuladoParaResolver(String(id))) as SimuladoResumo;
-        }
-        if (!dados) throw new Error("Simulado não disponível para resolução.");
-        if (!active) return;
+  // Carregar + iniciar (recarrega sempre que a tela ganha foco)
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        if (!id) return;
+        try {
+          setLoading(true);
 
-        setSimulado(dados);
-
-        // timer
-        const total = (dados.tempoMinutos ?? 0) * 60;
-        const gasto = dados.tempoGastoEmSegundos ?? 0;
-        setTempoRestante(Math.max(0, total - gasto));
-
-        // página inicial (retomar)
-        const idx = dados.ultimaQuestaoIndex ?? 0;
-        setPaginaAtual(Math.max(1, Math.min(dados.questoes.length, Math.floor(idx) + 1)));
-
-        // respostas iniciais (retomar sessão)
-        const iniciais: Record<string, any> = {};
-        (dados.questoes as Questao[]).forEach((q) => {
-          if (!q.resposta) return;
-          if ((q.tipo === "multipla_escolha" || q.tipo === "certa_errada") && typeof q.resposta === "string") {
-            const letra = q.resposta.trim().toUpperCase();
-            const index = letra.length === 1 ? letra.charCodeAt(0) - 65 : -1;
-            const limite = Array.isArray(q.alternativas) ? q.alternativas.length : undefined;
-            if (index >= 0 && (limite === undefined || index < limite)) {
-              iniciais[q.id] = index;
-            }
-          } else if (q.tipo === "objetiva_curta" || q.tipo === "dissertativa") {
-            iniciais[q.id] = q.resposta;
-          } else {
-            try { iniciais[q.id] = JSON.parse(q.resposta); } catch {}
+          let dados = consumeResolverCache(String(id)) as SimuladoResumo | undefined;
+          if (!dados) {
+            dados = (await getSimuladoParaResolver(String(id))) as SimuladoResumo;
           }
-        });
-        setRespostas(iniciais);
-      } catch (e) {
-        Alert.alert("Erro", "Falha ao carregar o simulado.");
-        setSimulado(null);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
-  }, [id]);
+          if (!dados) throw new Error("Simulado não disponível para resolução.");
+          if (!active) return;
 
-  // Timer
+          setSimulado(dados);
+
+          // timer
+          const total = (dados.tempoMinutos ?? 0) * 60;
+          const gasto = dados.tempoGastoEmSegundos ?? 0;
+          setTempoRestante(Math.max(0, total - gasto));
+
+          // página inicial (retomar)
+          const idx = dados.ultimaQuestaoIndex ?? 0;
+          setPaginaAtual(Math.max(1, Math.min(dados.questoes.length, Math.floor(idx) + 1)));
+
+          // respostas iniciais (retomar sessão)
+          const iniciais: Record<string, any> = {};
+          (dados.questoes as Questao[]).forEach((q) => {
+            if (!q.resposta) return;
+            if ((q.tipo === "multipla_escolha" || q.tipo === "certa_errada") && typeof q.resposta === "string") {
+              const letra = q.resposta.trim().toUpperCase();
+              const index = letra.length === 1 ? letra.charCodeAt(0) - 65 : -1;
+              const limite = Array.isArray(q.alternativas) ? q.alternativas.length : undefined;
+              if (index >= 0 && (limite === undefined || index < limite)) {
+                iniciais[q.id] = index;
+              }
+            } else if (q.tipo === "objetiva_curta" || q.tipo === "dissertativa") {
+              iniciais[q.id] = q.resposta;
+            } else {
+              try { iniciais[q.id] = JSON.parse(q.resposta); } catch {}
+            }
+          });
+          setRespostas(iniciais);
+        } catch (e) {
+          Alert.alert("Erro", "Falha ao carregar o simulado.");
+          setSimulado(null);
+        } finally {
+          if (active) setLoading(false);
+        }
+      })();
+      return () => { active = false; };
+    }, [id])
+  );
+
+  // Timer - apenas roda quando a tela está em foco
   useEffect(() => {
+    if (!isFocused) return; // ✅ ADICIONAR - Para o timer se não está em foco
     if (tempoRestante === null) return;
     if (tempoRestante <= 0) return;
     const t = setInterval(() => {
       setTempoRestante((v) => (v !== null ? v - 1 : null));
     }, 1000);
     return () => clearInterval(t);
-  }, [tempoRestante]);
+  }, [tempoRestante, isFocused]); // ✅ ADICIONAR isFocused na dependência
 
-  // Acabou tempo
+  // Acabou tempo - apenas mostra alert se a tela está em foco
   useEffect(() => {
+    if (!isFocused) return; // ✅ ADICIONAR - Não mostra alert se não está em foco
     if (tempoRestante !== 0) return;
     Alert.alert("Tempo esgotado", "Vamos concluir seu simulado.", [
       { text: "OK", onPress: concluir },
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tempoRestante === 0]);
+  }, [tempoRestante, isFocused]); // ✅ ADICIONAR isFocused na dependência
 
   // Scroll automático para o topo ao mudar de questão
   useEffect(() => {
@@ -419,41 +434,42 @@ export default function ResolverSimuladoScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {questaoAtual ? (
-            <View style={styles.card}>
-              <View style={{ marginTop: 12 }}>
-                <QuestaoSimuladoCard
-                  questao={questaoAtual}
-                  resposta={respostas[questaoAtual.id]}
-                  onChange={(valor) => handleResponder(questaoAtual.id, valor)}
-                />
+            <>
+              <View style={styles.card}>
+                <View style={{ marginTop: 12 }}>
+                  <QuestaoSimuladoCard
+                    questao={questaoAtual}
+                    resposta={respostas[questaoAtual.id]}
+                    onChange={(valor) => handleResponder(questaoAtual.id, valor)}
+                  />
+                </View>
               </View>
 
               {/* Navegação inferior */}
-              <View style={styles.navRow}>
-                <TouchableOpacity
-                  onPress={() => setPaginaAtual((p) => Math.max(1, p - 1))}
-                  style={[styles.navBtn, paginaAtual <= 1 && { opacity: 0.5 }]}
-                  disabled={paginaAtual <= 1}
-                >
-                  <Ionicons name="chevron-back" size={18} color="#7C3AED" />
-                  <Text style={styles.navText}>Anterior</Text>
-                </TouchableOpacity>
+              <View style={styles.navegacao}>
+                {paginaAtual > 1 && (
+                  <TouchableOpacity
+                    onPress={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+                    style={styles.botaoSeta}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-back" size={20} color="#E91E63" />
+                  </TouchableOpacity>
+                )}
 
-                <TouchableOpacity
-                  onPress={() =>
-                    setPaginaAtual((p) => Math.min(simulado.questoes.length, p + 1))
-                  }
-                  style={[
-                    styles.navBtn,
-                    paginaAtual >= simulado.questoes.length && { opacity: 0.5 },
-                  ]}
-                  disabled={paginaAtual >= simulado.questoes.length}
-                >
-                  <Text style={styles.navText}>Próxima</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
-                </TouchableOpacity>
+                {paginaAtual < simulado.questoes.length && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      setPaginaAtual((p) => Math.min(simulado.questoes.length, p + 1))
+                    }
+                    style={styles.botaoSeta}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-forward" size={20} color="#E91E63" />
+                  </TouchableOpacity>
+                )}
               </View>
-            </View>
+            </>
           ) : (
             <View style={{ alignItems: "center", justifyContent: "center", flex: 1 }}>
               <Text style={{ color: "#6B7280" }}>Nenhuma questão disponível.</Text>
@@ -501,7 +517,21 @@ const styles = StyleSheet.create({
   dotTextActive: { color: "#5B21B6", fontWeight: "700" },
 
   card: { backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", padding: 14 },
-  navRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16 },
-  navBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: "#FFFFFF" },
-  navText: { color: "#7C3AED", fontWeight: "700" },
+  navegacao: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 12,
+  },
+  botaoSeta: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
 });

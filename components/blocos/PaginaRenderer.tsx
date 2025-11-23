@@ -4,14 +4,15 @@ import React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { PaginaLeitura } from '../leitura/PaginaLeitura'
 import { QuestaoCardBloco } from '../questoes/QuestaoCardBloco'
-import { PaginaVideo } from '../video/PaginaVideo'
 import { PaginaSimulado } from '../simuladoTrilha/PaginaSimulado'
+import { PaginaVideo } from '../video/PaginaVideo'
 
 type PaginaInfo = {
   tipo: 'leitura' | 'video' | 'questoes' | 'simulado'
   atividadeIndex: number
   paginaInterna: number
   html: string // Para leitura: fragmento HTML | Para video: URL | Para questoes: questaoId
+  audioUrl?: string | null // ✅ NOVO
 }
 
 type Atividade = {
@@ -43,14 +44,19 @@ export function PaginaRenderer({
   onMarcarConcluida,
 }: Props) {
   // Leitura
-  if (pagina.tipo === 'leitura' && atividade.conteudoTexto) {
+  if (pagina.tipo === 'leitura') {
     return (
       <PaginaLeitura
         key={`leitura-${pagina.html}-${atividade.id}`}
         htmlFragmento={pagina.html}
         atividadeId={atividade.id}
         atividadeTitulo={atividade.titulo}
+        audioUrl={pagina.audioUrl} // ✅ NOVO
         onMarcarConcluida={onMarcarConcluida}
+        onAudioEnded={() => {
+          // Opcional: avançar automaticamente quando áudio terminar
+          // onAvancar?.()
+        }}
       />
     )
   }
