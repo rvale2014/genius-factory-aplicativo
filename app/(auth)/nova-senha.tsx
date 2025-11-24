@@ -116,7 +116,7 @@ export default function NovaSenhaScreen() {
         
         <View style={{ flex: 1, alignItems: 'center', marginRight: 32 }}>
           <Image
-            source={require('../../assets/images/genius-factory-logo.webp')}
+            source={require('../../assets/images/genius-factory-logo.png')}
             resizeMode="contain"
             style={{
               width: width * 0.4,

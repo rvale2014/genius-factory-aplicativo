@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // === config ===
 const PER_PAGE = 15;
-const placeholderImage = require('../../assets/images/genius-factory-logo.webp');
+const placeholderImage = require('../../assets/images/genius-factory-logo.png');
 
 type AnoTab = 'todos' | '4' | '5' | '6';
 const ANOS: { label: string; value: AnoTab }[] = [

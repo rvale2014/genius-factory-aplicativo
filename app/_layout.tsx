@@ -15,8 +15,8 @@ import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { Provider as JotaiProvider, useAtomValue } from 'jotai';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import LoadingScreen from '../components/LoadingScreen';
 import { loadSession, sessionAtom } from '../src/state/session';
 
 function BootSession({ onReady }: { onReady: () => void }) {
@@ -87,6 +87,16 @@ function BootSession({ onReady }: { onReady: () => void }) {
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [minLoadingTimeElapsed, setMinLoadingTimeElapsed] = useState(false);
+  
+  // Garante que a tela de loading seja exibida por pelo menos 2.5 segundos
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinLoadingTimeElapsed(true);
+    }, 2500);
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   // Carrega a fonte Inter usando @expo-google-fonts/inter
   const [fontsLoaded, fontError] = useFonts({
@@ -113,18 +123,19 @@ export default function RootLayout() {
 
   // Se houver erro ao carregar fontes, continua sem elas (usa fonte do sistema)
   const fontsReady = fontsLoaded || fontError !== null;
+  
+  // Só mostra o conteúdo quando tudo estiver pronto E o tempo mínimo tiver passado
+  const canShowContent = ready && fontsReady && minLoadingTimeElapsed;
 
   return (
     <JotaiProvider>
       <BootSession onReady={() => setReady(true)} />
-      {ready && fontsReady ? (
+      {canShowContent ? (
         <GestureHandlerRootView style={{ flex: 1 }}>
           <Slot />
         </GestureHandlerRootView>
       ) : (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#12011b' }}>
-          <ActivityIndicator size="large" color="#7A34FF" />
-        </View>
+        <LoadingScreen />
       )}
     </JotaiProvider>
   );

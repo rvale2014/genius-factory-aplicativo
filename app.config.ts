@@ -4,11 +4,11 @@ import 'dotenv/config';
 
 export default ({ config }: { config: ExpoConfig }) => ({
   ...config,
+
   name: 'Genius Factory',
   slug: 'genius-factory-aplicativo',
   scheme: 'geniusfactory',
-  
-  // ✅ CORRETO: Cada plugin em sua própria entrada
+
   plugins: [
     [
       'expo-video',
@@ -20,20 +20,22 @@ export default ({ config }: { config: ExpoConfig }) => ({
     [
       'expo-audio',
       {
-        // Configurações do expo-audio
-        // (pode deixar vazio para usar padrões)
+        // Configurações do expo-audio (opcional)
       },
     ],
   ],
-  
+
   extra: {
-    apiPort: process.env.EXPO_PUBLIC_API_PORT,
+    apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    eas: {
+      projectId: 'a006cfa6-28a4-499a-bf02-9315c59c9383',
+    },
   },
-  
+
   ios: {
     bundleIdentifier: 'com.geniusfactory.app',
   },
-  
+
   android: {
     package: 'com.geniusfactory.app',
   },
