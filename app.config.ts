@@ -8,8 +8,16 @@ export default ({ config }: { config: ExpoConfig }) => ({
   name: 'Genius Factory',
   slug: 'genius-factory-aplicativo',
   scheme: 'geniusfactory',
+  version: '1.0.1',
+
+  splash: {
+    image: './assets/images/splash.png',
+    resizeMode: 'contain',
+    backgroundColor: '#FFFFFF',
+  },
 
   plugins: [
+    'expo-splash-screen',
     [
       'expo-video',
       {
@@ -41,5 +49,6 @@ export default ({ config }: { config: ExpoConfig }) => ({
 
   android: {
     package: 'com.geniusfactory.app',
+    versionCode: 4,
   },
 });

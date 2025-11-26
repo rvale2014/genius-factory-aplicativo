@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Dimensions,
-    StatusBar,
-    StyleSheet,
-    View
+  Animated,
+  Dimensions,
+  StatusBar,
+  StyleSheet,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

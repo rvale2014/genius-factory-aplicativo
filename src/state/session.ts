@@ -9,15 +9,11 @@ export type Session = {
 
 const SECURE_KEY = 'gf_session_v1';
 
+// Atom da sessão
 export const sessionAtom = atom<Session>(null);
 
-export async function saveSession(session: Session) {
-  if (session) {
-    await SecureStore.setItemAsync(SECURE_KEY, JSON.stringify(session));
-  } else {
-    await SecureStore.deleteItemAsync(SECURE_KEY);
-  }
-}
+// Atom que indica se a sessão já foi carregada do SecureStore
+export const sessionLoadedAtom = atom<boolean>(false);
 
 export async function loadSession(): Promise<Session> {
   const raw = await SecureStore.getItemAsync(SECURE_KEY);
@@ -26,6 +22,14 @@ export async function loadSession(): Promise<Session> {
     return JSON.parse(raw);
   } catch {
     return null;
+  }
+}
+
+export async function saveSession(session: Session) {
+  if (session) {
+    await SecureStore.setItemAsync(SECURE_KEY, JSON.stringify(session));
+  } else {
+    await SecureStore.deleteItemAsync(SECURE_KEY);
   }
 }
 
