@@ -49,6 +49,6 @@ export default ({ config }: { config: ExpoConfig }) => ({
 
   android: {
     package: 'com.geniusfactory.app',
-    versionCode: 5,
+    versionCode: 6,
   },
 });
