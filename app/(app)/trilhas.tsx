@@ -1,4 +1,4 @@
-// app/(app)/trilhas/index.tsx
+// app/(app)/trilhas.tsx
 import { AlunoHeaderSummary } from '@/components/AlunoHeaderSummary';
 import type { TrilhaItem } from '@/src/schemas/trilhas';
 import { listarTrilhas, type ListarTrilhasParams } from '@/src/services/trilhasService';

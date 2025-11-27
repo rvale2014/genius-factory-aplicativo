@@ -14,9 +14,11 @@ import {
 import { useFonts } from 'expo-font';
 import { Slot, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { Provider as JotaiProvider, useSetAtom } from 'jotai';
 import { useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { loadSession, sessionAtom, sessionLoadedAtom } from '../src/state/session';
 
 // Previne que a splash screen desapareça automaticamente
@@ -91,12 +93,15 @@ export default function RootLayout() {
   const fontsReady = fontsLoaded || fontError !== null;
 
   return (
-    <JotaiProvider>
-      <Bootstrap onSessionLoaded={() => setSessionReady(true)} />
-      <SplashController fontsReady={fontsReady} sessionReady={sessionReady} />
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Slot />
-      </GestureHandlerRootView>
-    </JotaiProvider>
+    <SafeAreaProvider>
+      <StatusBar style="dark" />
+      <JotaiProvider>
+        <Bootstrap onSessionLoaded={() => setSessionReady(true)} />
+        <SplashController fontsReady={fontsReady} sessionReady={sessionReady} />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Slot />
+        </GestureHandlerRootView>
+      </JotaiProvider>
+    </SafeAreaProvider>
   );
 }

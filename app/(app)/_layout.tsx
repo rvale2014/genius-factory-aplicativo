@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
 import { BookOpen, GraduationCap, Home, Menu, Share2 } from 'lucide-react-native';
-import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AppLayout() {
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 56;
   return (
     <Tabs
       screenOptions={{
@@ -14,8 +16,8 @@ export default function AppLayout() {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E0E0E0',
-          height: Platform.OS === 'ios' ? 70 : 56,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 8,
         },
       }}
