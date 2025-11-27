@@ -8,7 +8,7 @@ export default ({ config }: { config: ExpoConfig }) => ({
   name: 'Genius Factory',
   slug: 'genius-factory-aplicativo',
   scheme: 'geniusfactory',
-  version: '1.0.1',
+  version: '1.0.2',
 
   splash: {
     image: './assets/images/splash.png',
@@ -49,6 +49,6 @@ export default ({ config }: { config: ExpoConfig }) => ({
 
   android: {
     package: 'com.geniusfactory.app',
-    versionCode: 4,
+    versionCode: 5,
   },
 });
