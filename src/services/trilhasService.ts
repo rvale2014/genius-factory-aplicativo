@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { TrilhasResponseSchema, type TrilhasResponse } from '../schemas/trilhas';
 
 export type ListarTrilhasParams = {
-  ano?: 'todos' | '4' | '5' | '6';
+  ano?: 'todos' | '4' | '5' | '6' | '7';
   materia?: 'todas' | string; // cuid()
   page?: number;
   perPage?: number;
