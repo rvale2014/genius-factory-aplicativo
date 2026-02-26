@@ -12,12 +12,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const PER_PAGE = 15;
 const placeholderImage = require('../../assets/images/genius-factory-logo.png');
 
-type AnoTab = 'todos' | '4' | '5' | '6';
+type AnoTab = 'todos' | '4' | '5' | '6' | '7';
 const ANOS: { label: string; value: AnoTab }[] = [
   { label: 'Todas', value: 'todos' },
   { label: '4º ano', value: '4' },
   { label: '5º ano', value: '5' },
   { label: '6º ano', value: '6' },
+  { label: '7º ano', value: '7' },
 ];
 
 export default function TrilhasScreen() {
