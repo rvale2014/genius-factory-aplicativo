@@ -16,6 +16,8 @@ export default ({ config }: { config: ExpoConfig }) => ({
     backgroundColor: '#FFFFFF',
   },
 
+  icon: './assets/images/icon.png',
+
   plugins: [
     'expo-splash-screen',
     [
@@ -50,5 +52,9 @@ export default ({ config }: { config: ExpoConfig }) => ({
   android: {
     package: 'com.geniusfactory.app',
     versionCode: 6,
+    adaptiveIcon: {
+      foregroundImage: './assets/images/adaptive-icon.png',
+      backgroundColor: '#FFFFFF',
+    },
   },
 });
