@@ -16,6 +16,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { api } from '../../src/lib/api';
 import { clearSession, sessionAtom } from '../../src/state/session';
 
 const diamondImage = require('../../assets/images/diamante.webp');
@@ -62,15 +63,22 @@ export default function MenuScreen() {
           onPress: async () => {
             try {
               setLoggingOut(true);
-              
-              // 1. Limpa o SecureStore
+
+              // 1. Chama logout no backend (limpa autorizacaoParentalEm)
+              try {
+                await api.post('/mobile/v1/auth/logout');
+              } catch {
+                // Se falhar (sem rede, token expirado), continua o logout local
+              }
+
+              // 2. Limpa o SecureStore
               await clearSession();
-              
-              // 2. Limpa o estado do Jotai
+
+              // 3. Limpa o estado do Jotai
               setSession(null);
-              
-              // 3. Redireciona para login
-              router.replace('/(auth)/login');
+
+              // 4. Redireciona para tela de PIN parental
+              router.replace('/(auth)/verificar-pin');
             } catch (error) {
               console.error('Erro ao fazer logout:', error);
               Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');

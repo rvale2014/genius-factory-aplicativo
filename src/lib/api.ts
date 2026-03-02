@@ -61,7 +61,7 @@ let refreshPromise: Promise<string> | null = null;
 function shouldSkipRefresh(config?: InternalAxiosRequestConfig) {
   // evita loop: não faz refresh para a própria rota de refresh/login/reset-password
   const url = config?.url || '';
-  return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/reset-password');
+  return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/reset-password') || url.includes('/auth/verificar-pin-parental');
 }
 
 api.interceptors.response.use(

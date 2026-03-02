@@ -15,9 +15,13 @@ export default function Index() {
   }
 
   // Sessão carregada: redireciona baseado no estado
-  if (session) {
-    return <Redirect href="/(app)/dashboard" />;
+  if (!session) {
+    return <Redirect href="/(auth)/verificar-pin" />;
   }
 
-  return <Redirect href="/(auth)/login" />;
+  if (session.pinParentalPendente) {
+    return <Redirect href="/(auth)/verificar-pin" />;
+  }
+
+  return <Redirect href="/(app)/dashboard" />;
 }

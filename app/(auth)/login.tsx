@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/lib/api';
-import { saveSession, sessionAtom } from '../../src/state/session';
+import { pinTemporarioAtom, saveSession, sessionAtom } from '../../src/state/session';
 
 const { width } = Dimensions.get('window');
 const isSmall = width < 360;
@@ -27,6 +27,8 @@ const isSmall = width < 360;
 export default function LoginScreen(): React.ReactElement {
   const router = useRouter();
   const setSession = useSetAtom(sessionAtom);
+  const pinTemporario = useAtomValue(pinTemporarioAtom);
+  const setPinTemporario = useSetAtom(pinTemporarioAtom);
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -46,7 +48,7 @@ export default function LoginScreen(): React.ReactElement {
       }
 
       const res = await api.post('/mobile/v1/auth/login', { email, senha });
-      const { accessToken, refreshToken } = res.data;
+      const { accessToken, refreshToken, pinParentalPendente } = res.data;
 
       if (!accessToken || !refreshToken) {
         setErro('Resposta inválida do servidor.');
@@ -54,10 +56,38 @@ export default function LoginScreen(): React.ReactElement {
         return;
       }
 
-      await saveSession({ accessToken, refreshToken });
-      setSession({ accessToken, refreshToken });
-
-      router.replace('/(app)/dashboard');
+      if (pinParentalPendente && pinTemporario) {
+        // Tenta verificar o PIN coletado antes do login
+        try {
+          await api.post(
+            '/mobile/v1/auth/verificar-pin-parental',
+            { pin: pinTemporario },
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+          );
+          // PIN correto — salva sessão sem pendência
+          await saveSession({ accessToken, refreshToken });
+          setSession({ accessToken, refreshToken });
+          setPinTemporario(null);
+          router.replace('/(app)/dashboard');
+        } catch (pinErr: any) {
+          // PIN incorreto — salva com pendência e redireciona para tela de PIN
+          await saveSession({ accessToken, refreshToken, pinParentalPendente: true });
+          setSession({ accessToken, refreshToken, pinParentalPendente: true });
+          setPinTemporario(null);
+          router.replace('/(auth)/verificar-pin?pinIncorreto=1');
+        }
+      } else if (pinParentalPendente) {
+        // Sem PIN temporário — salva com pendência
+        await saveSession({ accessToken, refreshToken, pinParentalPendente: true });
+        setSession({ accessToken, refreshToken, pinParentalPendente: true });
+        router.replace('/(auth)/verificar-pin');
+      } else {
+        // Sem pendência de PIN
+        await saveSession({ accessToken, refreshToken });
+        setSession({ accessToken, refreshToken });
+        setPinTemporario(null);
+        router.replace('/(app)/dashboard');
+      }
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 401) {

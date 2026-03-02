@@ -5,7 +5,11 @@ import { atom } from 'jotai';
 export type Session = {
   accessToken?: string;
   refreshToken?: string;
+  pinParentalPendente?: boolean;
 } | null;
+
+// PIN digitado entre telas (não persiste no SecureStore)
+export const pinTemporarioAtom = atom<string | null>(null);
 
 const SECURE_KEY = 'gf_session_v1';
 
