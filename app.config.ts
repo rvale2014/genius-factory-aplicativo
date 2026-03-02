@@ -30,7 +30,7 @@ export default ({ config }: { config: ExpoConfig }) => ({
     [
       'expo-audio',
       {
-        // Configurações do expo-audio (opcional)
+        microphonePermission: false,
       },
     ],
   ],
