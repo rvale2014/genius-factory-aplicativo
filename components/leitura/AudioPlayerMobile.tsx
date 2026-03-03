@@ -2,7 +2,8 @@
 
 import { Ionicons } from '@expo/vector-icons'
 import { useAudioPlayer } from 'expo-audio'
-import React, { useEffect, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 type Props = {
@@ -26,6 +27,24 @@ export function AudioPlayerMobile({ audioUrl, autoPlay = false, onEnded }: Props
   const [duration, setDuration] = useState(0)
   const [playbackRate, setPlaybackRate] = useState(1.0)
   const [hasEnded, setHasEnded] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+
+  // Refs para evitar dependências instáveis no interval
+  const hasEndedRef = useRef(false)
+  const isLoadingRef = useRef(true)
+  const onEndedRef = useRef(onEnded)
+  onEndedRef.current = onEnded
+
+  // Pausa o áudio quando a tela perde foco (ex: aluno volta para o caminho)
+  // Necessário porque Tabs mantém telas montadas — useEffect cleanup não é suficiente
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        try { player?.pause() } catch {}
+        setIsPlaying(false)
+      }
+    }, [player])
+  )
 
   // Reseta estado quando o audioUrl muda
   useEffect(() => {
@@ -33,41 +52,55 @@ export function AudioPlayerMobile({ audioUrl, autoPlay = false, onEnded }: Props
     setPosition(0)
     setDuration(0)
     setHasEnded(false)
+    setIsPlaying(false)
+    hasEndedRef.current = false
+    isLoadingRef.current = true
   }, [audioUrl])
 
-  // Atualiza posição e duração periodicamente
+  // Sincroniza isPlaying com o player a cada 250ms
+  // e detecta loading/ended sem depender de state no array de deps
   useEffect(() => {
     if (!player) return
 
     const interval = setInterval(() => {
-      if (player) {
+      try {
         const currentDuration = player.duration ?? 0
         const currentPosition = player.currentTime ?? 0
-        
-        // Converte segundos para milissegundos
-        const durationMs = currentDuration * 1000
-        const positionMs = currentPosition * 1000
-        
-        setDuration(durationMs)
-        setPosition(positionMs)
-        
+        const playing = player.playing
+
+        // Atualiza isPlaying para manter o ícone sincronizado
+        setIsPlaying(playing)
+
         // Detecta quando termina de carregar
-        if (currentDuration > 0 && isLoading) {
+        if (currentDuration > 0 && isLoadingRef.current) {
+          isLoadingRef.current = false
           setIsLoading(false)
         }
-        
+
         // Detecta quando termina de tocar
-        if (currentDuration > 0 && currentPosition >= currentDuration && player.playing && !hasEnded) {
+        if (currentDuration > 0 && currentPosition >= currentDuration && playing && !hasEndedRef.current) {
+          hasEndedRef.current = true
           setHasEnded(true)
-          onEnded?.()
+          onEndedRef.current?.()
         }
+
+        // Só atualiza posição/duração se estiver tocando (evita re-renders quando pausado)
+        if (playing) {
+          const durationMs = currentDuration * 1000
+          const positionMs = currentPosition * 1000
+          setDuration(durationMs)
+          setPosition(positionMs)
+        }
+      } catch {
+        // Player já foi liberado — ignora
       }
-    }, 100)
+    }, 250)
 
     return () => {
       clearInterval(interval)
+      try { player.pause() } catch {}
     }
-  }, [player, isLoading, hasEnded, onEnded])
+  }, [player])
 
   // Auto-play quando configurado
   useEffect(() => {
@@ -85,12 +118,15 @@ export function AudioPlayerMobile({ audioUrl, autoPlay = false, onEnded }: Props
     try {
       if (player.playing) {
         player.pause()
+        setIsPlaying(false)
       } else {
         player.play()
+        setIsPlaying(true)
         setHasEnded(false)
+        hasEndedRef.current = false
       }
-    } catch (error) {
-      console.error('Erro ao alternar play/pause:', error)
+    } catch {
+      // Player já foi liberado
     }
   }
 
@@ -101,9 +137,11 @@ export function AudioPlayerMobile({ audioUrl, autoPlay = false, onEnded }: Props
       const newPositionMs = (value / 100) * duration
       const newPositionSeconds = newPositionMs / 1000
       player.seekTo(newPositionSeconds)
+      setPosition(newPositionMs)
       setHasEnded(false)
-    } catch (error) {
-      console.error('Erro ao buscar posição:', error)
+      hasEndedRef.current = false
+    } catch {
+      // Player já foi liberado
     }
   }
 
@@ -113,8 +151,6 @@ export function AudioPlayerMobile({ audioUrl, autoPlay = false, onEnded }: Props
     const nextIndex = (currentIndex + 1) % rates.length
     setPlaybackRate(rates[nextIndex])
   }
-
-  const isPlaying = player?.playing ?? false
 
   const progress = duration > 0 ? (position / duration) * 100 : 0
 

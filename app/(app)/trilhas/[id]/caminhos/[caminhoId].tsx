@@ -22,6 +22,7 @@ import { ModalCaminhos } from '../../../../../components/trilhas/ModalCaminhos';
 import { getMateriaVisualConfig } from '../../../../../src/constants/materias';
 import { api } from '../../../../../src/lib/api';
 import type { TrilhasCaminhoResponse } from '../../../../../src/schemas/trilhas.caminho-completo';
+import { obterChavesBloco } from '../../../../../src/services/blocoStorageService';
 import { invalidarCacheCaminho, obterCaminho } from '../../../../../src/services/caminhoService';
 import { finalizarTrilha } from '../../../../../src/services/trilhasService';
 
@@ -160,24 +161,25 @@ export default function CaminhoScreen() {
   useEffect(() => {
     async function verificarBlocosEmRefazer() {
       if (!data) return;
-      
-      const blocosRefazer = new Set<string>();
-      
-      for (const bloco of data.blocos) {
-        // Se o bloco está concluído no backend (todas atividades concluídas)
-        const todasAtividadesConcluidas = bloco.atividades.every(a => a.concluido);
-        
-        if (todasAtividadesConcluidas) {
-          // Vamos usar uma flag no AsyncStorage para marcar blocos em modo refazer
-          const refazerKey = `@geniusfactory:refazer-bloco-${bloco.id}`;
-          const emRefazer = await AsyncStorage.getItem(refazerKey);
-          
-          if (emRefazer === 'true') {
-            blocosRefazer.add(bloco.id);
-          }
-        }
+
+      // Filtra blocos concluídos e monta as chaves para leitura batch
+      const blocosConcluidos = data.blocos.filter(b => b.atividades.every(a => a.concluido));
+
+      if (blocosConcluidos.length === 0) {
+        setBlocosEmRefazer(new Set());
+        return;
       }
-      
+
+      const keys = blocosConcluidos.map(b => `@geniusfactory:refazer-bloco-${b.id}`);
+      const results = await AsyncStorage.multiGet(keys);
+
+      const blocosRefazer = new Set<string>();
+      results.forEach(([key, value], i) => {
+        if (value === 'true') {
+          blocosRefazer.add(blocosConcluidos[i].id);
+        }
+      });
+
       setBlocosEmRefazer(blocosRefazer);
     }
     
@@ -234,37 +236,12 @@ export default function CaminhoScreen() {
     try {
       // 1. Marca o bloco como em modo "refazer"
       await AsyncStorage.setItem(`@geniusfactory:refazer-bloco-${blocoId}`, 'true');
-      
-      // 2. Remove as chaves principais do bloco
-      const chavesPrincipais = [
-        `@geniusfactory:pos-bloco-${blocoId}`,
-        `@geniusfactory:done-bloco-${blocoId}`,
-        `@geniusfactory:erro-bloco-${blocoId}`,
-      ];
 
-      // 3. Busca todas as chaves do AsyncStorage para encontrar as relacionadas ao bloco
-      const todasChaves = await AsyncStorage.getAllKeys();
-      
-      // Filtra chaves relacionadas ao bloco:
-      // - questao-estado-${blocoId}-${questaoId}
-      // - marcada-${blocoId}-${questaoId}
-      // - resposta-bloco-${blocoId}-${questaoId}
-      const prefixoBloco = `@geniusfactory:`;
-      const chavesQuestoes = todasChaves.filter((key) => {
-        if (!key.startsWith(prefixoBloco)) return false;
-        const sufixo = key.replace(prefixoBloco, '');
-        return (
-          sufixo.startsWith(`questao-estado-${blocoId}-`) ||
-          sufixo.startsWith(`marcada-${blocoId}-`) ||
-          sufixo.startsWith(`resposta-bloco-${blocoId}-`)
-        );
-      });
+      // 2. Obtém todas as chaves do bloco via índice (sem getAllKeys)
+      const chavesParaRemover = await obterChavesBloco(blocoId);
 
-      // 4. Remove todas as chaves relacionadas
-      const todasChavesParaRemover = [...chavesPrincipais, ...chavesQuestoes];
-      
-      if (todasChavesParaRemover.length > 0) {
-        await AsyncStorage.multiRemove(todasChavesParaRemover);
+      if (chavesParaRemover.length > 0) {
+        await AsyncStorage.multiRemove(chavesParaRemover);
       }
     } catch (error) {
       // Erro silencioso
@@ -375,11 +352,6 @@ export default function CaminhoScreen() {
     }
   }, [trilhaId, router]);
   
-  // Força atualização do estado blocosEmRefazer após recarregar dados
-  useEffect(() => {
-    // Atualização silenciosa do estado
-  }, [data, blocosEmRefazer]);
-
   // Salva a referência sempre que os dados mudam
   useEffect(() => {
     if (data && data.blocos.length > 0) {

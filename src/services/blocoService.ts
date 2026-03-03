@@ -51,17 +51,9 @@ export async function obterBloco(
   blocoId: string
 ): Promise<BlocoResponse> {
   try {
-    console.log('🌐 blocoService.obterBloco chamado')
-    console.log('   URL:', `/mobile/v1/blocos/${blocoId}`)
-    
     const response = await api.get(`/mobile/v1/blocos/${blocoId}`)
-    
     return response.data
   } catch (error: any) {
-    console.error('❌ Erro em obterBloco:', error)
-    console.error('   Response:', error?.response?.data)
-    console.error('   Status:', error?.response?.status)
-    
     throw new Error(
       error?.response?.data?.error || 'Erro ao carregar dados do bloco'
     )
@@ -85,7 +77,6 @@ export async function concluirBloco(blocoId: string): Promise<{
     const response = await api.post(`/mobile/v1/blocos/${blocoId}/concluir`)
     return response.data
   } catch (error: any) {
-    console.error('[concluirBloco] Erro:', error)
     throw new Error(
       error?.response?.data?.error || 'Erro ao concluir bloco'
     )
@@ -101,8 +92,7 @@ export async function buscarQuestoesLote(questaoIds: string[]): Promise<any[]> {
       questaoIds,
     })
     return response.data.questoes || []
-  } catch (error: any) {
-    console.error('[buscarQuestoesLote] Erro:', error)
+  } catch {
     return []
   }
 }

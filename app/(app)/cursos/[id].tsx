@@ -134,8 +134,7 @@ export default function CursoDetalhesScreen() {
           // Registrar visualização
           registrarVisualizacaoAula(primeiraAula.id);
         }
-      } catch (e: any) {
-        console.error('Erro ao carregar curso:', e);
+      } catch {
         setErro('Não foi possível carregar o curso. Tente novamente.');
       } finally {
         setLoading(false);
@@ -236,8 +235,7 @@ export default function CursoDetalhesScreen() {
             }));
           }
         }
-      } catch (error) {
-        console.error('Erro ao atualizar conteúdo:', error);
+      } catch {
         // Rollback em caso de erro
         setStatusAulas((prev) => ({
           ...prev,
@@ -253,8 +251,8 @@ export default function CursoDetalhesScreen() {
     setAvaliacoes((prev) => ({ ...prev, [aulaId]: nota }));
     try {
       await avaliarAula(aulaId, nota);
-    } catch (error) {
-      console.error('Erro ao avaliar aula:', error);
+    } catch {
+      // erro silencioso — avaliação não é crítica
     }
   }, []);
 
@@ -295,11 +293,9 @@ export default function CursoDetalhesScreen() {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
         await Linking.openURL(url);
-      } else {
-        console.error('Não é possível abrir o PDF:', url);
       }
-    } catch (error) {
-      console.error('Erro ao abrir PDF:', error);
+    } catch {
+      // erro ao abrir PDF ignorado
     }
   }, []);
 
@@ -332,8 +328,7 @@ export default function CursoDetalhesScreen() {
                   setStatusAulas(data.statusAulas);
                   setAvaliacoes(data.avaliacoes);
                 })
-                .catch((e) => {
-                  console.error('Erro ao recarregar:', e);
+                .catch(() => {
                   setErro('Não foi possível carregar o curso.');
                 })
                 .finally(() => setLoading(false));
@@ -416,7 +411,7 @@ export default function CursoDetalhesScreen() {
                 <VideoPlayer
                   uri={videoAtual.conteudo.url}
                   onEnded={handleVideoEnded}
-                  onError={(error) => console.error('Erro no player:', error)}
+                  onError={() => {}}
                 />
               </View>
               {indiceVideoAtual < totalVideos - 1 && (

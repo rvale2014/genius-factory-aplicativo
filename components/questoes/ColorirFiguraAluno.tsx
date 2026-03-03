@@ -81,14 +81,9 @@ function buildHtml(conteudo: ConteudoColorir, respondido: boolean) {
       }
 
       function aplicarEstilos() {
-        console.log('[WebView] Aplicando estilos. Respondido:', respondido, 'Selecionadas:', Array.from(selecionadas));
-        
         partes.forEach((parte) => {
           const root = document.getElementById(parte.id);
-          if (!root) {
-            console.warn('[WebView] Parte não encontrada:', parte.id);
-            return;
-          }
+          if (!root) return;
           const shapes = obterShapes(root);
 
           // Reset styles
@@ -101,14 +96,11 @@ function buildHtml(conteudo: ConteudoColorir, respondido: boolean) {
           const marcada = selecionadas.has(parte.id);
           const correta = !!parte.correta;
 
-          console.log('[WebView] Parte:', parte.id, '| Marcada:', marcada, '| Correta:', correta);
-
           shapes.forEach((shape) => {
             if (!respondido) {
               // Modo resolução: azul se marcada
               if (marcada) {
                 shape.style.fill = corSelecao;
-                console.log('[WebView] Aplicando cor de seleção:', corSelecao);
               }
               return;
             }
@@ -117,16 +109,13 @@ function buildHtml(conteudo: ConteudoColorir, respondido: boolean) {
             if (marcada && correta) {
               // ✅ Marcou certo: verde
               shape.style.fill = corAcerto;
-              console.log('[WebView] Aplicando cor de acerto:', corAcerto);
             } else if (marcada && !correta) {
               // ❌ Marcou errado: vermelho
               shape.style.fill = corErro;
-              console.log('[WebView] Aplicando cor de erro:', corErro);
             } else if (!marcada && correta) {
               // Não marcou, mas era correta: borda verde (indicação)
               shape.style.stroke = corAcerto;
               shape.style.strokeWidth = "3px";
-              console.log('[WebView] Aplicando borda de acerto');
             }
             // Se não marcou e não era correta, deixa sem estilo (cinza)
           });
@@ -164,11 +153,7 @@ function buildHtml(conteudo: ConteudoColorir, respondido: boolean) {
       }
 
       function registrarListeners() {
-        if (respondido) {
-          // No modo correção, desabilita cliques
-          console.log('[WebView] Modo correção - listeners desabilitados');
-          return;
-        }
+        if (respondido) return;
 
         partes.forEach((parte) => {
           const root = document.getElementById(parte.id);
@@ -190,7 +175,6 @@ function buildHtml(conteudo: ConteudoColorir, respondido: boolean) {
       }
 
       function inicializar() {
-        console.log('[WebView] Inicializando. Respondido:', respondido);
         prepararFundo();
         registrarListeners();
         aplicarEstilos();
@@ -201,13 +185,12 @@ function buildHtml(conteudo: ConteudoColorir, respondido: boolean) {
         try {
           const data = JSON.parse(event.data);
           if (data.type === "syncState") {
-            console.log('[WebView] Recebido syncState:', data);
             selecionadas = new Set(data.partesMarcadas || []);
             respondido = !!data.respondido;
             aplicarEstilos();
           }
         } catch (err) {
-          console.error("[WebView] syncState error", err);
+          // erro de parse ignorado
         }
       });
 
@@ -298,8 +281,8 @@ export default function ColorirFiguraAluno({
           setRespostasAluno({ partesMarcadas: recebidas });
           return;
         }
-      } catch (err) {
-        console.error('[React Native] Erro ao processar mensagem:', err);
+      } catch {
+        // erro de parse ignorado
       }
     },
     [setRespostasAluno],

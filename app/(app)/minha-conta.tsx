@@ -137,7 +137,6 @@ export default function MinhaContaScreen() {
         perfil.responsavelNascimento ? dateFromISO(perfil.responsavelNascimento) : ''
       );
     } catch (e: any) {
-      console.error('Erro ao carregar perfil:', e);
       // Em modo silencioso, não mostra erro para não interromper a experiência
       if (!silencioso) {
         setErro('Não foi possível carregar os dados do perfil.');
@@ -228,8 +227,7 @@ export default function MinhaContaScreen() {
           perfil.responsavelNascimento ? dateFromISO(perfil.responsavelNascimento) : ''
         );
       }
-    } catch (e: any) {
-      console.error('Erro ao salvar:', e);
+    } catch {
       Alert.alert('Erro', 'Não foi possível salvar os dados.');
     }
   };
@@ -270,8 +268,8 @@ export default function MinhaContaScreen() {
       try {
         const lista = await listarAvatares();
         setAvatares(lista);
-      } catch (e) {
-        console.error('Erro ao carregar avatares:', e);
+      } catch {
+        // erro ao carregar avatares ignorado
       } finally {
         setCarregandoAvatares(false);
       }
@@ -294,8 +292,7 @@ export default function MinhaContaScreen() {
       const perfil = await obterPerfil();
       setData(perfil);
       setFormData(perfil);
-    } catch (e: any) {
-      console.error('Erro ao salvar avatar:', e);
+    } catch {
       Alert.alert('Erro', 'Não foi possível salvar o avatar.');
     }
   };
@@ -310,8 +307,7 @@ export default function MinhaContaScreen() {
       const perfil = await obterPerfil();
       setData(perfil);
       setFormData(perfil);
-    } catch (e: any) {
-      console.error('Erro ao remover avatar:', e);
+    } catch {
       Alert.alert('Erro', 'Não foi possível remover o avatar.');
     }
   };
@@ -336,7 +332,6 @@ export default function MinhaContaScreen() {
       setNovaSenha('');
       setConfirmarSenha('');
     } catch (e: any) {
-      console.error('Erro ao trocar senha:', e);
       Alert.alert('Erro', e.response?.data?.error || 'Não foi possível trocar a senha.');
     }
   };

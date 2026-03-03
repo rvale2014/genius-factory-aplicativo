@@ -100,34 +100,48 @@ export function BlocoContainer() {
       let temProgressoReal = false;
   
       // PRIMEIRO: Verificar TODAS as páginas de questões para garantir que questões com estado salvo sejam marcadas
+      // Coleta as chaves de todas as questões para leitura batch
+      const questaoEntries: Array<{ index: number; estadoKey: string; marcadaKey: string }> = [];
       for (let i = 0; i < totalPaginas; i++) {
         const pagina = paginasInfo[i];
         if (pagina?.tipo === 'questoes') {
           const questaoId = pagina.html;
           const questao = questoesMap[questaoId];
           if (questao) {
-            const questaoEstadoKey = `@geniusfactory:questao-estado-${blocoId}-${questaoId}`;
-            const questaoMarcadaKey = `@geniusfactory:marcada-${blocoId}-${questaoId}`;
-            const [estadoRaw, marcadaRaw] = await Promise.all([
-              AsyncStorage.getItem(questaoEstadoKey),
-              AsyncStorage.getItem(questaoMarcadaKey),
-            ]);
-            
-            if (estadoRaw || marcadaRaw) {
-              try {
-                if (estadoRaw) {
-                  const estado = JSON.parse(estadoRaw);
-                  if (estado?.feedback?.status === "ok") {
-                    concluidas[i] = true;
-                    temProgressoReal = true;
-                  }
-                } else if (marcadaRaw) {
-                  concluidas[i] = true;
+            questaoEntries.push({
+              index: i,
+              estadoKey: `@geniusfactory:questao-estado-${blocoId}-${questaoId}`,
+              marcadaKey: `@geniusfactory:marcada-${blocoId}-${questaoId}`,
+            });
+          }
+        }
+      }
+
+      if (questaoEntries.length > 0) {
+        const allKeys = questaoEntries.flatMap(e => [e.estadoKey, e.marcadaKey]);
+        const allResults = await AsyncStorage.multiGet(allKeys);
+
+        // Mapeia resultados por chave para acesso rápido
+        const resultMap = new Map(allResults);
+
+        for (const entry of questaoEntries) {
+          const estadoRaw = resultMap.get(entry.estadoKey) ?? null;
+          const marcadaRaw = resultMap.get(entry.marcadaKey) ?? null;
+
+          if (estadoRaw || marcadaRaw) {
+            try {
+              if (estadoRaw) {
+                const estado = JSON.parse(estadoRaw);
+                if (estado?.feedback?.status === "ok") {
+                  concluidas[entry.index] = true;
                   temProgressoReal = true;
                 }
-              } catch (e) {
-                // Ignora erros de parse
+              } else if (marcadaRaw) {
+                concluidas[entry.index] = true;
+                temProgressoReal = true;
               }
+            } catch {
+              // Ignora erros de parse
             }
           }
         }
@@ -143,7 +157,7 @@ export function BlocoContainer() {
             if (done[i]) {
               const pagina = paginasInfo[i];
               if (pagina?.tipo !== 'questoes') {
-                concluidas[i] = false;
+                concluidas[i] = true;
               }
             }
           }
@@ -388,38 +402,46 @@ export function BlocoContainer() {
 
   // 9. Encerrar bloco
   const handleEncerrar = useCallback(async () => {
+    const executarEncerramento = async () => {
+      try {
+        setEncerrando(true)
+
+        const data = await concluirBloco(blocoId)
+
+        // Remove a flag de "refazer" se existir, pois o bloco foi concluído novamente
+        await AsyncStorage.removeItem(`@geniusfactory:refazer-bloco-${blocoId}`)
+
+        // Invalida o cache do caminho para garantir dados atualizados
+        await invalidarCacheCaminho(id, caminhoId)
+
+        if (data.novasConquistas?.length > 0) {
+          setConquistasDesbloqueadas(data.novasConquistas)
+          setModalConquistaAberto(true)
+        } else {
+          // Navega direto para o caminho
+          await limparPersistencia(blocoId)
+          router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)
+        }
+      } catch (error: any) {
+        Alert.alert('Erro', error.message || 'Não foi possível encerrar o bloco')
+      } finally {
+        setEncerrando(false)
+      }
+    }
+
     if (!podeEncerrar) {
       Alert.alert(
-        'Atenção',
-        'Você precisa completar todas as atividades antes de encerrar o bloco'
+        'Atividades pendentes',
+        'Você ainda não completou todas as atividades. Deseja encerrar mesmo assim?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Encerrar', style: 'destructive', onPress: executarEncerramento },
+        ]
       )
       return
     }
 
-    try {
-      setEncerrando(true)
-
-      const data = await concluirBloco(blocoId)
-
-      // Remove a flag de "refazer" se existir, pois o bloco foi concluído novamente
-      await AsyncStorage.removeItem(`@geniusfactory:refazer-bloco-${blocoId}`)
-
-      // Invalida o cache do caminho para garantir dados atualizados
-      await invalidarCacheCaminho(id, caminhoId)
-      
-      if (data.novasConquistas?.length > 0) {
-        setConquistasDesbloqueadas(data.novasConquistas)
-        setModalConquistaAberto(true)
-      } else {
-        // Navega direto para o caminho
-        await limparPersistencia(blocoId)
-        router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)
-      }
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Não foi possível encerrar o bloco')
-    } finally {
-      setEncerrando(false)
-    }
+    executarEncerramento()
   }, [podeEncerrar, blocoId, id, caminhoId, router])
 
   // 10. Garantir que paginaAtual seja válida e sincronizar se necessário
@@ -476,10 +498,10 @@ export function BlocoContainer() {
         {paginaInfo.tipo !== 'simulado' && (
           <TouchableOpacity
             onPress={handleEncerrar}
-            disabled={!podeEncerrar || encerrando}
+            disabled={encerrando}
             style={[
               styles.botaoEncerrarHeader,
-              (!podeEncerrar || encerrando) && styles.botaoEncerrarHeaderDisabled,
+              encerrando && styles.botaoEncerrarHeaderDisabled,
             ]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.8}

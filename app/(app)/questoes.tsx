@@ -761,35 +761,11 @@ useEffect(() => {
 
     if (!active) return;
 
-    if (mats.status === "fulfilled") {
-      setMaterias(mats.value);
-    } else {
-      console.error("Falha ao carregar matérias:", mats.reason);
-    }
-
-    if (insts.status === "fulfilled") {
-      setInstituicoes(insts.value);
-    } else {
-      console.error("Falha ao carregar instituições:", insts.reason);
-    }
-
-    if (grausResp.status === "fulfilled") {
-      setGraus(grausResp.value);
-    } else {
-      console.error("Falha ao carregar graus:", grausResp.reason);
-    }
-
-    if (seriesResp.status === "fulfilled") {
-      setSeries(seriesResp.value);
-    } else {
-      console.error("Falha ao carregar séries:", seriesResp.reason);
-    }
-
-    if (anosResp.status === "fulfilled") {
-      setAnos(anosResp.value);
-    } else {
-      console.error("Falha ao carregar anos:", anosResp.reason);
-    }
+    if (mats.status === "fulfilled") setMaterias(mats.value);
+    if (insts.status === "fulfilled") setInstituicoes(insts.value);
+    if (grausResp.status === "fulfilled") setGraus(grausResp.value);
+    if (seriesResp.status === "fulfilled") setSeries(seriesResp.value);
+    if (anosResp.status === "fulfilled") setAnos(anosResp.value);
   })();
 
   return () => {
@@ -804,7 +780,7 @@ useEffect(() => {
       setSelAssuntos([]);
       return;
     }
-  buscarAssuntosTree(selMaterias).then(setAssuntosTree).catch(console.error);
+  buscarAssuntosTree(selMaterias).then(setAssuntosTree).catch(() => {});
   }, [selMaterias]);
 
   // ===== Dependências: Classes ← Instituições =====
@@ -816,7 +792,7 @@ useEffect(() => {
     }
   buscarClasses(selInstituicoes)
     .then((rows) => setClasses(rows))
-    .catch(console.error);
+    .catch(() => {});
   }, [selInstituicoes]);
 
   // ===== Dependências: Fases ← Instituições (+ opcionais Classes) =====
@@ -828,7 +804,7 @@ useEffect(() => {
     }
   buscarFases(selInstituicoes[0], selClasses)
     .then((rows) => setFases(rows))
-    .catch(console.error);
+    .catch(() => {});
   }, [selInstituicoes, selClasses]);
 
   // ===== Filtros consolidados p/ API =====

@@ -15,6 +15,7 @@ import {
 } from "@/src/services/respostasService";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registrarChaveBloco } from "@/src/services/blocoStorageService";
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -495,10 +496,12 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
       };
 
       await AsyncStorage.setItem(storageKey, JSON.stringify(estado));
+      await registrarChaveBloco(blocoId, storageKey);
 
       // Também salva flag simples para compatibilidade
       if (feedback?.status === "ok" && questaoIdRef.current === questao.id) {
         await AsyncStorage.setItem(respostaKey, JSON.stringify({ respondido: true }));
+        await registrarChaveBloco(blocoId, respostaKey);
       }
     } catch (error) {
       // Ignora erros ao salvar estado
@@ -633,7 +636,9 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
             // Chama o callback para marcar como concluída
             onMarcarConcluidaRef.current();
             // Marca a flag para evitar chamar novamente
-            AsyncStorage.setItem(foiMarcadaKey, "true").catch(() => {
+            AsyncStorage.setItem(foiMarcadaKey, "true").then(() => {
+              registrarChaveBloco(blocoId, foiMarcadaKey);
+            }).catch(() => {
               // Ignora erros ao salvar flag
             });
           }

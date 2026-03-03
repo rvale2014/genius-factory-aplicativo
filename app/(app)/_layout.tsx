@@ -1,27 +1,30 @@
 import { Tabs } from 'expo-router';
 import { BookOpen, GraduationCap, Home, Menu, Share2 } from 'lucide-react-native';
+import { useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const TAB_BAR_HEIGHT = 56;
 
 export default function AppLayout() {
   const insets = useSafeAreaInsets();
-  const TAB_BAR_HEIGHT = 56;
+
+  const screenOptions = useMemo(() => ({
+    headerShown: false,
+    tabBarActiveTintColor: '#FF5FDB',
+    tabBarInactiveTintColor: '#999999',
+    tabBarShowLabel: false,
+    tabBarStyle: {
+      backgroundColor: '#FFFFFF',
+      borderTopWidth: 1,
+      borderTopColor: '#E0E0E0',
+      height: TAB_BAR_HEIGHT + insets.bottom,
+      paddingBottom: insets.bottom,
+      paddingTop: 8,
+    },
+  }), [insets.bottom]);
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#FF5FDB',
-        tabBarInactiveTintColor: '#999999',
-        tabBarShowLabel: false,
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E0E0E0',
-          height: TAB_BAR_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 8,
-        },
-      }}
-    >
+    <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
         name="dashboard"
         options={{

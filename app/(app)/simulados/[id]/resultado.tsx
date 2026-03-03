@@ -99,18 +99,14 @@ export default function ResultadoScreen() {
         
         // ✅ SEMPRE LIMPA O CONTEXTO PRIMEIRO
         setContextoTrilha(null);
-        
+
         const contextoKey = `@geniusfactory:simulado-contexto-${id}`;
-        console.log('[ResultadoSimulado] Buscando contexto com chave:', contextoKey);
-        
         const contextoRaw = await AsyncStorage.getItem(contextoKey);
-        console.log('[ResultadoSimulado] Contexto raw encontrado:', contextoRaw);
-        
+
         if (contextoRaw) {
           try {
             const contexto = JSON.parse(contextoRaw);
-            console.log('[ResultadoSimulado] Contexto parseado:', contexto);
-            
+
             // Valida se o contexto tem os campos necessários e válidos
             if (
               contexto &&
@@ -124,22 +120,16 @@ export default function ResultadoScreen() {
               typeof contexto.blocoId === 'string' &&
               typeof contexto.atividadeId === 'string'
             ) {
-              console.log('[ResultadoSimulado] ✅ Contexto válido! Modo trilha ativado');
             setContextoTrilha(contexto);
             } else {
-              console.warn('[ResultadoSimulado] ❌ Contexto inválido, removendo:', contexto);
               await AsyncStorage.removeItem(contextoKey);
             }
-          } catch (e) {
-            console.error('[ResultadoSimulado] ❌ Erro ao parsear contexto:', e);
+          } catch {
             await AsyncStorage.removeItem(contextoKey);
           }
-        } else {
-          console.log('[ResultadoSimulado] ℹ️ Nenhum contexto encontrado - modo Q-Bank normal');
         }
         
-      } catch (e) {
-        console.error(e);
+      } catch {
         alert("Não foi possível carregar o resultado.");
       } finally {
         if (active) setLoading(false);
@@ -209,7 +199,6 @@ export default function ResultadoScreen() {
       // Navega para o caminho
       router.replace(`/trilhas/${contextoTrilha.trilhaId}/caminhos/${contextoTrilha.caminhoId}`);
     } catch (error: any) {
-      console.error('[ResultadoSimulado] Erro ao encerrar:', error);
       Alert.alert('Erro', error?.response?.data?.error || 'Não foi possível encerrar o simulado');
     } finally {
       setEncerrando(false);
@@ -311,8 +300,7 @@ export default function ResultadoScreen() {
               try {
                 const r = await refazerSimulado(String(id));
                 router.replace(`/simulados/${r.novoSimuladoId}/resolver`);
-              } catch (e) {
-                console.error(e);
+              } catch {
                 alert("Erro ao refazer o simulado.");
               }
             }}
@@ -554,12 +542,20 @@ function ComentariosCard({
   idsOrdenados: string[];
   onPressQuestao: (index: number) => void;
 }) {
+  const questoesMap = React.useMemo(() => {
+    const map = new Map<string, ResultadoQuestao>();
+    for (const q of questoes) {
+      map.set(q.id, q);
+    }
+    return map;
+  }, [questoes]);
+
   return (
     <View style={styles.sectionCard}>
       <Text style={[styles.sectionTitle, styles.sectionTitleStandalone]}>Comentários das questões</Text>
       <View style={styles.commentsGrid}>
         {idsOrdenados.map((qid, index) => {
-          const questao = questoes.find((q) => q.id === qid);
+          const questao = questoesMap.get(qid);
           if (!questao) return null;
           const pendente = questao.tipo === "dissertativa" && questao.avaliacaoStatus !== "ok";
           const acertou = questao.acertou;

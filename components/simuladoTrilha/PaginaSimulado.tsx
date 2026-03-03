@@ -68,7 +68,6 @@ export function PaginaSimulado({
       
       setMeta(data)
     } catch (error: any) {
-      console.error('[PaginaSimulado] Erro ao carregar:', error)
       Alert.alert('Erro', error?.response?.data?.error || 'Não foi possível carregar o simulado')
     } finally {
       setLoading(false)
@@ -96,24 +95,14 @@ export function PaginaSimulado({
         atividadeId,
       }
       
-      console.log('[PaginaSimulado] Salvando contexto:', {
-        simuladoId,
-        contexto,
-      })
-
       await AsyncStorage.setItem(
         `@geniusfactory:simulado-contexto-${simuladoId}`,
         JSON.stringify(contexto)
       )
 
-      // ✅ VERIFICA se foi salvo corretamente
-      const verificacao = await AsyncStorage.getItem(`@geniusfactory:simulado-contexto-${simuladoId}`)
-      console.log('[PaginaSimulado] Contexto verificado:', verificacao)
-
       // Navega para a tela de resolver
       router.push(`/simulados/${simuladoId}/resolver`)
     } catch (error: any) {
-      console.error('[PaginaSimulado] Erro ao iniciar:', error)
       Alert.alert('Erro', error?.response?.data?.error || 'Não foi possível iniciar o simulado')
     } finally {
       setIniciando(false)

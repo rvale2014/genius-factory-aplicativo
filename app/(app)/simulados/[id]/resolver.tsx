@@ -107,7 +107,7 @@ function serializarParaEnvio(valor: any): string {
 }
 
 // ====== UI: Barra de progresso + navegação compacta ======
-function ProgressHeader({
+const ProgressHeader = React.memo(function ProgressHeader({
   questoes,
   respostas,
   paginaAtual,
@@ -153,7 +153,7 @@ function ProgressHeader({
       </View>
     </View>
   );
-}
+});
 
 // ====== Tela principal ======
 export default function ResolverSimuladoScreen() {

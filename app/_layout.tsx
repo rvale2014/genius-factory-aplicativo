@@ -16,7 +16,7 @@ import { Slot, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as JotaiProvider, useSetAtom } from 'jotai';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { loadSession, sessionAtom, sessionLoadedAtom } from '../src/state/session';
@@ -37,8 +37,8 @@ function Bootstrap({ onSessionLoaded }: { onSessionLoaded: () => void }) {
       try {
         const session = await loadSession();
         setSession(session);
-      } catch (error) {
-        console.error('Erro ao carregar sessão:', error);
+      } catch {
+        // erro ao carregar sessão — continua com sessão vazia
       } finally {
         setSessionLoaded(true);
         onSessionLoaded();
@@ -91,12 +91,13 @@ export default function RootLayout() {
   });
 
   const fontsReady = fontsLoaded || fontError !== null;
+  const onSessionLoaded = useCallback(() => setSessionReady(true), []);
 
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <JotaiProvider>
-        <Bootstrap onSessionLoaded={() => setSessionReady(true)} />
+        <Bootstrap onSessionLoaded={onSessionLoaded} />
         <SplashController fontsReady={fontsReady} sessionReady={sessionReady} />
         <GestureHandlerRootView style={{ flex: 1 }}>
           <Slot />

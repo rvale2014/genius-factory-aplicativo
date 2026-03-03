@@ -103,6 +103,20 @@ export default function QuestaoPlayer({ questao }: Props) {
     return Array.isArray(parsed) ? parsed : [];
   }, [tipo, questao.ligarColunas]);
 
+  // coluna B embaralhada (movido para fora do if para respeitar Rules of Hooks)
+  const ligarColunasB = useMemo(() => {
+    if (tipo !== "ligar_colunas") return [];
+    if (!respLigar._colunaB || respLigar._colunaB.length === 0) {
+      const arr = [...ligarColunasA];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    return Array.isArray(respLigar._colunaB) ? respLigar._colunaB : [];
+  }, [tipo, respLigar._colunaB, ligarColunasA]);
+
   // ====== Handlers ======
   async function onResponder() {
     try {
@@ -332,34 +346,15 @@ export default function QuestaoPlayer({ questao }: Props) {
     }
 
     if (tipo === "ligar_colunas") {
-      // UI simplificada: mostre a coluna A (linhas numeradas) e peça pro aluno
-      // digitar o número da linha A correspondente a cada item da coluna B.
-      // Precisamos também do _colunaB (embaralhada) — aqui, como demo, usaremos a PRÓPRIA A embaralhada localmente
-      // até você passar a colunaB do seu componente.
-      // Dica: quando vier do seu componente, faça setRespLigar({_colunaB: colunaB, "0": "3", "1": "1", ...})
-      const colunaA = ligarColunasA;
-      // Embaralhar rapidamente A para simular uma B
-      const colB = useMemo(() => {
-        if (!respLigar._colunaB || respLigar._colunaB.length === 0) {
-          const arr = [...colunaA];
-          for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-          }
-          return arr;
-        }
-        return Array.isArray(respLigar._colunaB) ? respLigar._colunaB : [];
-      }, [respLigar._colunaB, colunaA]);
-
       return (
         <View style={{ gap: 12 }}>
           <Text style={{ fontWeight: "700" }}>Coluna A (referência)</Text>
-          {colunaA.map((a: any, i: number) => (
+          {ligarColunasA.map((a: any, i: number) => (
             <Text key={`A-${i}`}>{`${i + 1}) ${a.ladoB}`}</Text>
           ))}
 
           <Text style={{ fontWeight: "700", marginTop: 8 }}>Coluna B (embaralhada)</Text>
-          {colB.map((b: any, i: number) => (
+          {ligarColunasB.map((b: any, i: number) => (
             <View key={`B-${i}`} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Text style={{ width: 22, textAlign: "right" }}>{i + 1})</Text>
               <Text style={{ flex: 1 }}>{String(b.ladoB)}</Text>
@@ -370,7 +365,7 @@ export default function QuestaoPlayer({ questao }: Props) {
                 onChangeText={(t) => {
                   setRespLigar((prev) => ({
                     ...prev,
-                    _colunaB: colB,
+                    _colunaB: ligarColunasB,
                     [String(i)]: t,
                   }));
                 }}
