@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { obterRanking, RankingData, RankingItem } from '../../src/services/rankingService';
+import { RankingSkeleton } from '@/components/skeleton/RankingSkeleton';
 
 const placeholderImage = require('../../assets/images/logo_genius.webp');
 
@@ -272,10 +273,19 @@ export default function RankingScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
-          <Text style={styles.loadingText}>Carregando ranking...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/dashboard')}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={18} color="#EB1480" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Ranking</Text>
+          <View style={styles.headerSpacer} />
         </View>
+        <RankingSkeleton />
       </SafeAreaView>
     );
   }
@@ -358,17 +368,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: getInterFont('400'),
   },
   errorContainer: {
     flex: 1,

@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Award, BookOpen, Gauge, TrendingDown, TrendingUp, Trophy } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   Image,
   RefreshControl,
@@ -17,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CachedImage } from '../../components/CachedImage';
 import { GaugeChart } from '../../components/GaugeChart';
+import { DashboardSkeleton } from '@/components/skeleton/DashboardSkeleton';
 import type { DashboardResponse } from '../../src/schemas/dashboard';
 import { primeAlunoHeaderCache } from '../../src/services/alunoHeaderService';
 import { obterDashboard } from '../../src/services/dashboardService';
@@ -47,6 +47,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const lastLoadRef = useRef<number>(0);
+  const initialLoadedRef = useRef(false);
 
   const carregarDashboard = useCallback(async (silencioso = false) => {
     try {
@@ -77,13 +78,17 @@ export default function DashboardScreen() {
       }
     } finally {
       setLoading(false);
+      initialLoadedRef.current = true;
     }
   }, []);
 
   // ✅ ESTRATÉGIA 1: useFocusEffect (para navegação entre telas)
+  // Só faz reload silencioso após o carregamento inicial (evita race condition com useEffect)
   useFocusEffect(
     useCallback(() => {
-      carregarDashboard(true); // Carrega silenciosamente (sem loading spinner)
+      if (initialLoadedRef.current) {
+        carregarDashboard(true);
+      }
     }, [carregarDashboard])
   );
 
@@ -118,10 +123,7 @@ export default function DashboardScreen() {
   if (loading && !data) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
-          <Text style={styles.loadingText}>Carregando dashboard...</Text>
-        </View>
+        <DashboardSkeleton />
       </SafeAreaView>
     );
   }
@@ -591,17 +593,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: getInterFont('400'),
   },
   errorContainer: {
     flex: 1,

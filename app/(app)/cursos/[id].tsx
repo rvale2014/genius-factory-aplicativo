@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   Linking,
   ScrollView,
@@ -26,6 +25,7 @@ import {
   obterDetalhesCurso,
   registrarVisualizacaoAula,
 } from '../../../src/services/cursoService';
+import { CursoDetalhesSkeleton } from '@/components/skeleton/CursoDetalhesSkeleton';
 import type {
   Aula,
   Conteudo,
@@ -329,10 +329,15 @@ export default function CursoDetalhesScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#7A34FF" />
-          <Text style={styles.loadingText}>Carregando curso...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <View style={styles.headerSpacer} />
         </View>
+        <CursoDetalhesSkeleton />
       </SafeAreaView>
     );
   }
@@ -547,17 +552,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: getInterFont('400'),
   },
   errorContainer: {
     flex: 1,

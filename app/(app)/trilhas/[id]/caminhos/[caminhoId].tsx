@@ -25,6 +25,7 @@ import type { TrilhasCaminhoResponse } from '../../../../../src/schemas/trilhas.
 import { obterChavesBloco } from '../../../../../src/services/blocoStorageService';
 import { invalidarCacheCaminho, obterCaminho } from '../../../../../src/services/caminhoService';
 import { finalizarTrilha } from '../../../../../src/services/trilhasService';
+import { CaminhoSkeleton } from '@/components/skeleton/CaminhoSkeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONNECTOR_HEIGHT = 70;
@@ -380,12 +381,16 @@ export default function CaminhoScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#7A34FF" />
-          <Text style={styles.loadingText}>Carregando caminho...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#6B21A8', '#4C1D95', '#1F2937']}
+          locations={[0, 0.4, 1]}
+          style={styles.backgroundGradient}
+        />
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <CaminhoSkeleton />
+        </SafeAreaView>
+      </View>
     );
   }
 
@@ -704,17 +709,6 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Regular',
   },
   errorContainer: {
     flex: 1,

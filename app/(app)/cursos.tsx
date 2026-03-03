@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { CursoItem } from '@/src/schemas/cursos';
 import { listarCursos, type ListarCursosParams } from '@/src/services/cursosService';
+import { CardListSkeleton } from '@/components/skeleton/CardListSkeleton';
 
 const PER_PAGE = 15;
 const placeholderImage = require('../../assets/images/genius-factory-logo.png');
@@ -246,10 +247,7 @@ export default function CursosScreen() {
           <Text style={styles.headerTitle}>Cursos</Text>
         </View>
         <YearSelector />
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
-          <Text style={styles.loadingText}>Carregando cursos...</Text>
-        </View>
+        <CardListSkeleton count={4} />
       </SafeAreaView>
     );
   }
@@ -415,10 +413,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  loadingBox: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10,
-  },
-  loadingText: { color: '#666' },
 
   errorBox: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 20,

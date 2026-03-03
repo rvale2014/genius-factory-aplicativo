@@ -7,6 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CardListSkeleton } from '@/components/skeleton/CardListSkeleton';
 
 // === config ===
 const PER_PAGE = 15;
@@ -240,10 +241,7 @@ export default function TrilhasScreen() {
           <Text style={styles.headerTitle}>Trilhas</Text>
         </View>
         <YearSelector />
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
-          <Text style={styles.loadingText}>Carregando trilhas...</Text>
-        </View>
+        <CardListSkeleton count={4} />
       </SafeAreaView>
     );
   }
@@ -408,10 +406,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  loadingBox: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10,
-  },
-  loadingText: { color: '#666' },
 
   errorBox: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 20,

@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import { PerformanceGauge } from '../../components/performance/PerformanceGauge'
 import { PerformanceHeader } from '../../components/performance/PerformanceHeader';
 import { PerformanceStreak } from '../../components/performance/PerformanceStreak';
 import { obterPerformance, PerformanceData } from '../../src/services/performanceService';
+import { PerformanceSkeleton } from '@/components/skeleton/PerformanceSkeleton';
 
 function getInterFont(fontWeight?: string | number): string {
   if (!fontWeight) return 'Inter-Regular';
@@ -91,10 +91,19 @@ export default function PerformanceScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
-          <Text style={styles.loadingText}>Carregando performance...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/dashboard')}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={18} color="#EB1480" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Performance</Text>
+          <View style={styles.headerSpacer} />
         </View>
+        <PerformanceSkeleton />
       </SafeAreaView>
     );
   }
@@ -193,17 +202,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: getInterFont('400'),
   },
   errorContainer: {
     flex: 1,

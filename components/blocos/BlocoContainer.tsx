@@ -19,6 +19,7 @@ import { invalidarCacheCaminho } from '../../src/services/caminhoService'
 import { BarraNavegacaoPaginas } from './BarraNavegacaoPaginas'
 import { ModalConquistas } from './ModalConquistas'
 import { PaginaRenderer } from './PaginaRenderer'
+import { BlocoSkeleton } from '@/components/skeleton/BlocoSkeleton'
 
 type PaginaInfo = {
   tipo: 'leitura' | 'video' | 'questoes' | 'simulado'
@@ -458,10 +459,19 @@ export function BlocoContainer() {
   if (loading || paginas.length === 0 || atividades.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#7C3AED" />
-          <Text style={styles.loadingText}>Carregando bloco...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.replace(`/trilhas/${id}/caminhos/${caminhoId}`)}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <View style={{ width: 70 }} />
         </View>
+        <BlocoSkeleton />
       </SafeAreaView>
     )
   }
@@ -705,17 +715,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontFamily: 'Inter-Regular',
   },
   errorContainer: {
     flex: 1,

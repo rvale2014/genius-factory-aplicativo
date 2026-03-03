@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image as ExpoImage } from 'expo-image';
 import {
-  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ConquistaItem } from '../../src/schemas/conquistas';
+import { ConquistasSkeleton } from '@/components/skeleton/ConquistasSkeleton';
 import { obterConquistas } from '../../src/services/conquistasService';
 
 const { width } = Dimensions.get('window');
@@ -204,10 +204,38 @@ export default function ConquistasScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF5FDB" />
-          <Text style={styles.loadingText}>Carregando conquistas...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/dashboard')}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={18} color="#EB1480" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Conquistas</Text>
+          <View style={styles.headerSpacer} />
         </View>
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tab, tabAtiva === 'conquistas' && styles.tabAtiva]}
+            onPress={() => setTabAtiva('conquistas')}
+          >
+            <Text style={[styles.tabText, tabAtiva === 'conquistas' && styles.tabTextAtiva]}>
+              Badges de Conquista
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, tabAtiva === 'especiais' && styles.tabAtiva]}
+            onPress={() => setTabAtiva('especiais')}
+          >
+            <Text style={[styles.tabText, tabAtiva === 'especiais' && styles.tabTextAtiva]}>
+              Badges Especiais
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <ConquistasSkeleton />
       </SafeAreaView>
     );
   }
@@ -347,17 +375,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: getInterFont('400'),
   },
   errorContainer: {
     flex: 1,
