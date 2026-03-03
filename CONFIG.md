@@ -30,7 +30,8 @@
 * O build de produção é o que será enviado para a Google Play Store. Ele é otimizado para performance e tamanho.
 * O build de produção gera um arquivo .aab (Android App Bundle). A Google Play não aceita mais arquivos .apk para publicação; ela exige o formato .aab.
 
-
-
+7) **EAS Update**
+O EAS Update é basicamente uma forma de enviar atualizações "over-the-air" (OTA) para o seu app sem precisar fazer um novo build e passar pela revisão da Play Store.
+**COMANDO**: eas update --channel production -m "corrigido bug no login"
 
 

@@ -3,7 +3,8 @@ import { obterQuestaoCorrigida } from "@/src/services/simuladosResultadoService"
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Image } from 'expo-image';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import RenderHTML from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -273,7 +274,7 @@ export default function VisualizarQuestaoResultadoSheet({
                 <Image
                   source={{ uri: dados.imagemUrl }}
                   style={styles.imagemQuestao}
-                  resizeMode="contain"
+                  contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
                 />
               </View>
             )}
@@ -534,7 +535,7 @@ function ConteudoObjetiva({ dados }: { dados: QuestaoDetalhada }) {
                 <Image
                   source={{ uri: imagemUrl }}
                   style={styles.alternativaImagem}
-                  resizeMode="contain"
+                  contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
                 />
               )}
               <Text style={styles.alternativaTexto}>{alt}</Text>

@@ -44,6 +44,7 @@ export default ({ config }: { config: ExpoConfig }) => ({
 
   ios: {
     bundleIdentifier: 'com.geniusfactory.app',
+    supportsTablet: false,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },

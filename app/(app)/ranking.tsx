@@ -3,10 +3,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -73,7 +73,9 @@ function AvatarItem({
         <Image
           source={{ uri: imageSrc }}
           style={{ width: size - 4, height: size - 4, borderRadius: (size - 4) / 2 }}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="disk"
+          transition={{ duration: 200 }}
         />
       ) : (
         <View

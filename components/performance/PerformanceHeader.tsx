@@ -2,115 +2,17 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { api } from '../../src/lib/api';
-import { getBaseUrl } from '../../src/lib/baseUrl';
+import { CachedImage } from '../CachedImage';
 
 const diamondImage = require('../../assets/images/diamante.webp');
 const trophyImage = require('../../assets/images/trofeu.webp');
-const placeholderImage = require('../../assets/images/logo_genius.webp');
 
 interface PerformanceHeaderProps {
   nome: string;
   avatarUrl: string | null;
   geniusCoins: number;
   posicaoGlobal: number;
-}
-
-// Componente para carregar imagem com fallback (igual ao Dashboard)
-function ImageWithFallback({ 
-  uri, 
-  style, 
-  placeholder 
-}: { 
-  uri: string | null; 
-  style: any; 
-  placeholder: any;
-}) {
-  const [imageError, setImageError] = useState(false);
-  const [finalUrl, setFinalUrl] = useState<string | null>(null);
-  const [isRenewing, setIsRenewing] = useState(false);
-
-  useEffect(() => {
-    setImageError(false);
-    setIsRenewing(false);
-    
-    async function loadImage() {
-      if (!uri || typeof uri !== 'string' || uri.trim() === '') {
-        setFinalUrl(null);
-        return;
-      }
-
-      let processedUri = uri.trim();
-      
-      if (processedUri.startsWith('http://') || processedUri.startsWith('https://')) {
-        try {
-          const url = new URL(processedUri);
-          const normalizedUrl = url.toString();
-          setFinalUrl(normalizedUrl);
-        } catch (e) {
-          setFinalUrl(processedUri);
-        }
-      } else if (processedUri.startsWith('/')) {
-        const baseUrl = getBaseUrl().replace('/api', '');
-        setFinalUrl(`${baseUrl}${processedUri}`);
-      } else {
-        setFinalUrl(null);
-      }
-    }
-
-    loadImage();
-  }, [uri]);
-
-  const renewToken = async (firebaseUrl: string) => {
-    try {
-      setIsRenewing(true);
-      const response = await api.get('/mobile/v1/image-proxy', {
-        params: { url: firebaseUrl },
-      });
-      if (response.data?.url) {
-        setFinalUrl(response.data.url);
-        setImageError(false);
-      } else {
-        console.warn('Resposta do endpoint não contém URL:', response.data);
-        setImageError(true);
-      }
-    } catch (error: any) {
-      console.error('Erro ao renovar token da imagem:', error);
-      setImageError(true);
-    } finally {
-      setIsRenewing(false);
-    }
-  };
-
-  if (!finalUrl || (imageError && !isRenewing)) {
-    return <Image source={placeholder} style={style} resizeMode="contain" />;
-  }
-
-  if (isRenewing) {
-    return <Image source={placeholder} style={style} resizeMode="contain" />;
-  }
-
-  return (
-    <Image
-      source={{ uri: finalUrl }}
-      style={style}
-      resizeMode="contain"
-      onError={(error) => {
-        const errorMsg = error.nativeEvent?.error || 'Unknown error';
-        const is403 = errorMsg.includes('403') || errorMsg.includes('Forbidden');
-        
-        if (is403 && finalUrl && finalUrl.includes('firebasestorage.googleapis.com')) {
-          console.warn('Token expirado, tentando renovar:', finalUrl);
-          renewToken(finalUrl);
-        } else {
-          console.warn('Erro ao carregar imagem:', { uri: finalUrl, error: errorMsg, is403 });
-          setImageError(true);
-        }
-      }}
-    />
-  );
 }
 
 function getInterFont(fontWeight?: string | number): string {
@@ -141,10 +43,10 @@ export function PerformanceHeader({
         <View style={styles.avatarContainer}>
           <View style={styles.avatarCircle}>
             {avatarUrl ? (
-              <ImageWithFallback
+              <CachedImage
                 uri={avatarUrl}
                 style={styles.avatarImage}
-                placeholder={placeholderImage}
+                contentFit="contain"
               />
             ) : (
               <View style={styles.avatarPlaceholder}>

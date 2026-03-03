@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSetAtom } from 'jotai';
 import { Award, Gauge, LogOut, Trophy, User } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
+import { Image as ExpoImage } from 'expo-image';
 import {
   ActivityIndicator,
   Alert,
@@ -114,7 +115,7 @@ export default function MenuScreen() {
           <View style={styles.avatarWrapper}>
             <View style={styles.avatarCircle}>
               {data?.avatarUrl ? (
-                <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} resizeMode="contain" />
+                <ExpoImage source={{ uri: data.avatarUrl }} style={styles.avatarImage} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
               ) : (
                 <Ionicons name="person" size={36} color="#FFFFFF" />
               )}

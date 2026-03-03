@@ -2,6 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Image as ExpoImage } from 'expo-image';
 import {
   ActivityIndicator,
   Dimensions,
@@ -35,32 +36,6 @@ function getInterFont(fontWeight?: string | number): string {
   return 'Inter-Regular';
 }
 
-// Componente para carregar imagem com fallback
-function ImageWithFallback({
-  uri,
-  style,
-  grayscale = false,
-}: {
-  uri: string;
-  style: any;
-  grayscale?: boolean;
-}) {
-  const [imageError, setImageError] = useState(false);
-
-  if (imageError || !uri) {
-    return <Image source={placeholderImage} style={style} resizeMode="contain" />;
-  }
-
-  return (
-    <Image
-      source={{ uri }}
-      style={[style, grayscale && styles.grayscaleImage]}
-      resizeMode="contain"
-      onError={() => setImageError(true)}
-    />
-  );
-}
-
 // Card individual de conquista
 function ConquistaCard({ conquista }: { conquista: ConquistaItem }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
@@ -90,10 +65,12 @@ function ConquistaCard({ conquista }: { conquista: ConquistaItem }) {
             <Ionicons name="information-circle-outline" size={18} color="#9CA3AF" />
           </TouchableOpacity>
           <View style={styles.cardImageContainer}>
-            <ImageWithFallback
-              uri={conquista.imagemUrl}
-              style={styles.cardImage}
-              grayscale={!conquista.desbloqueada}
+            <ExpoImage
+              source={{ uri: conquista.imagemUrl }}
+              style={[styles.cardImage, !conquista.desbloqueada && styles.grayscaleImage]}
+              contentFit="contain"
+              cachePolicy="disk"
+              transition={{ duration: 200 }}
             />
           </View>
           <Text style={styles.cardTitle} numberOfLines={2}>

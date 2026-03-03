@@ -1,6 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useCallback, useMemo } from "react";
 import {
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -479,7 +479,7 @@ export default function QuestaoSimuladoCard({
                       <Image
                         source={{ uri: imagemUrl }}
                         style={styles.alternativaImagem}
-                        resizeMode="contain"
+                        contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
                       />
                     ) : null}
 

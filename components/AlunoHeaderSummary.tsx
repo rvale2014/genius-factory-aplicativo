@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { Image as ExpoImage } from 'expo-image';
 import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { useAlunoHeader } from '../src/hooks/useAlunoHeader';
 
@@ -26,7 +27,7 @@ export function AlunoHeaderSummary({ style, onPressNotification }: Props) {
       <View style={styles.profileGroup}>
         <View style={styles.avatarCircle}>
           {data?.avatarUrl ? (
-            <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+            <ExpoImage source={{ uri: data.avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" transition={{ duration: 200 }} />
           ) : (
             <Ionicons name="person" size={26} color="#FFFFFF" />
           )}

@@ -15,10 +15,10 @@ import {
 } from "@/src/services/respostasService";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -955,7 +955,7 @@ export const QuestaoCardBloco = React.memo(function QuestaoCardBloco({
                         <Image
                           source={{ uri: imagemUrl }}
                           style={styles.alternativaImagem}
-                          resizeMode="contain"
+                          contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
                         />
                       )}
                       <View style={styles.alternativaTextoArea}>

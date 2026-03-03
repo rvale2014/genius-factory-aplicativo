@@ -11,10 +11,10 @@ import {
   corrigirTabela,
 } from "@/src/services/respostasService";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -723,7 +723,7 @@ return (
                         <Image
                           source={{ uri: imagemUrl }}
                           style={styles.alternativaImagem}
-                          resizeMode="contain"
+                          contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
                         />
                       )}
                       <View style={styles.alternativaTextoArea}>

@@ -1,13 +1,13 @@
 // app/(app)/minha-conta.tsx
 
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Camera, Eye, EyeOff, Lock, MapPin, User, Users } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -396,7 +396,7 @@ export default function MinhaContaScreen() {
         <View style={styles.avatarSection}>
           <TouchableOpacity style={styles.avatarContainer} onPress={handleAbrirModalAvatar}>
             {imagemPerfil ? (
-              <Image source={{ uri: imagemPerfil }} style={styles.avatarImage} resizeMode="contain" />
+              <Image source={{ uri: imagemPerfil }} style={styles.avatarImage} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarInitials}>{initials}</Text>
@@ -924,7 +924,9 @@ export default function MinhaContaScreen() {
                     <Image
                       source={{ uri: avatar.imageUrl }}
                       style={styles.avatarOptionImage}
-                      resizeMode="contain"
+                      contentFit="contain"
+                      cachePolicy="disk"
+                      transition={{ duration: 200 }}
                     />
                     <Text style={styles.avatarOptionName} numberOfLines={3}>
                       {avatar.nome}

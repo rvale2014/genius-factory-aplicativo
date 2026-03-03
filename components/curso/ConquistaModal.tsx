@@ -1,10 +1,10 @@
 // components/curso/ConquistaModal.tsx
 
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React from 'react';
 import {
   Dimensions,
-  Image,
   Modal,
   StyleSheet,
   Text,
@@ -55,7 +55,7 @@ export function ConquistaModal({
             <Image
               source={{ uri: conquista.imagemUrl }}
               style={styles.image}
-              resizeMode="contain"
+              contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
             />
           </View>
 

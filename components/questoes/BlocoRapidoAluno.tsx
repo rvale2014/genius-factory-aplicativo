@@ -1,7 +1,8 @@
 // components/questoes/BlocoRapidoAluno.tsx
 import { Check, X } from 'lucide-react-native';
 import React from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type ItemBlocoRapido = {
   pergunta: string;
@@ -70,7 +71,7 @@ export default function BlocoRapidoAluno({
           return (
             <View key={index} style={styles.itemVF}>
               {img ? (
-                <Image source={{ uri: img }} style={styles.imagemVF} resizeMode="contain" />
+                <Image source={{ uri: img }} style={styles.imagemVF} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
               ) : (
                 <Text style={styles.perguntaVF}>{item.pergunta}</Text>
               )}
@@ -123,7 +124,7 @@ export default function BlocoRapidoAluno({
         return (
           <View key={index} style={styles.itemTexto}>
             {img ? (
-              <Image source={{ uri: img }} style={styles.imagemTexto} resizeMode="contain" />
+              <Image source={{ uri: img }} style={styles.imagemTexto} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
             ) : (
               <Text style={styles.perguntaTexto}>{item.pergunta}</Text>
             )}

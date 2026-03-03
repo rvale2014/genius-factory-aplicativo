@@ -1,10 +1,10 @@
 // components/blocos/ModalConquistas.tsx
 
 import { Ionicons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
 import React, { useState } from 'react'
 import {
   Dimensions,
-  Image,
   Modal,
   StyleSheet,
   Text,
@@ -75,7 +75,7 @@ export function ModalConquistas({ visible, conquistas, onClose }: Props) {
                 <Image
                   source={{ uri: conquista.imagemUrl }}
                   style={styles.conquistaImage}
-                  resizeMode="contain"
+                  contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
                 />
               ) : (
                 <View style={styles.imagePlaceholder}>

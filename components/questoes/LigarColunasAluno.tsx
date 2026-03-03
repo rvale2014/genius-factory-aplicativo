@@ -1,7 +1,8 @@
 // components/questoes/LigarColunasAluno.tsx
 import { Check, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 type ItemLigarColunas = {
   ladoA: string;
@@ -98,7 +99,7 @@ export default function LigarColunasAluno({
             <View key={i} style={styles.itemAVertical}>
               <Text style={styles.numeroA}>({i + 1})</Text>
               {item.imagemA ? (
-                <Image source={{ uri: item.imagemA }} style={styles.imagemVertical} resizeMode="contain" />
+                <Image source={{ uri: item.imagemA }} style={styles.imagemVertical} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
               ) : (
                 <Text style={styles.textoAVertical}>{item.ladoA}</Text>
               )}
@@ -134,7 +135,7 @@ export default function LigarColunasAluno({
 
                 <View style={styles.conteudoBVertical}>
                   {item.imagemB ? (
-                    <Image source={{ uri: item.imagemB }} style={styles.imagemVertical} resizeMode="contain" />
+                    <Image source={{ uri: item.imagemB }} style={styles.imagemVertical} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
                       <Text
@@ -174,7 +175,7 @@ export default function LigarColunasAluno({
           <View key={i} style={styles.itemA}>
             <Text style={styles.numeroA}>({i + 1})</Text>
             {item.imagemA ? (
-              <Image source={{ uri: item.imagemA }} style={styles.imagem} resizeMode="contain" />
+              <Image source={{ uri: item.imagemA }} style={styles.imagem} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
             ) : (
               <Text style={styles.textoA}>{item.ladoA}</Text>
             )}
@@ -210,7 +211,7 @@ export default function LigarColunasAluno({
 
               <View style={styles.conteudoB}>
                 {item.imagemB ? (
-                  <Image source={{ uri: item.imagemB }} style={styles.imagem} resizeMode="contain" />
+                  <Image source={{ uri: item.imagemB }} style={styles.imagem} contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }} />
                 ) : (
                   <Text
                     style={styles.textoB}

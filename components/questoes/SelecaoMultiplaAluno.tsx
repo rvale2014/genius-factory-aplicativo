@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image } from 'expo-image';
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export type SelecaoMultiplaAlternativa = {
   id: string;
@@ -144,7 +145,7 @@ export default function SelecaoMultiplaAluno({
               <Image
                 source={{ uri: alt.imagemUrl }}
                 style={styles.imagem}
-                resizeMode="contain"
+                contentFit="contain" cachePolicy="disk" transition={{ duration: 200 }}
               />
             ) : null}
 

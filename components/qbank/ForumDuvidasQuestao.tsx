@@ -1,11 +1,11 @@
 // components/ForumDuvidasQuestao.tsx
 import { api } from '@/src/lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -112,7 +112,7 @@ export default function ForumDuvidasQuestao({ questaoId }: Props) {
       <View style={styles.duvidaCard}>
         <View style={styles.duvidaHeader}>
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} cachePolicy="disk" transition={{ duration: 200 }} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarText}>{inicialAluno}</Text>

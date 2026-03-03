@@ -15,9 +15,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CachedImage } from '../../components/CachedImage';
 import { GaugeChart } from '../../components/GaugeChart';
-import { api } from '../../src/lib/api';
-import { getBaseUrl } from '../../src/lib/baseUrl';
 import type { DashboardResponse } from '../../src/schemas/dashboard';
 import { primeAlunoHeaderCache } from '../../src/services/alunoHeaderService';
 import { obterDashboard } from '../../src/services/dashboardService';
@@ -28,111 +27,6 @@ const { width } = Dimensions.get('window');
 const placeholderImage = require('../../assets/images/logo_genius.webp');
 const diamondImage = require('../../assets/images/diamante.webp');
 const trophyImage = require('../../assets/images/trofeu.webp');
-
-// Componente para carregar imagem com fallback
-function ImageWithFallback({ 
-  uri, 
-  style, 
-  placeholder 
-}: { 
-  uri: string | null; 
-  style: any; 
-  placeholder: any;
-}) {
-  const [imageError, setImageError] = useState(false);
-  const [finalUrl, setFinalUrl] = useState<string | null>(null);
-  const [isRenewing, setIsRenewing] = useState(false);
-
-  useEffect(() => {
-    // Reset states when URI changes
-    setImageError(false);
-    setIsRenewing(false);
-    
-    async function loadImage() {
-      if (!uri || typeof uri !== 'string' || uri.trim() === '') {
-        setFinalUrl(null);
-        return;
-      }
-
-      let processedUri = uri.trim();
-      
-      if (processedUri.startsWith('http://') || processedUri.startsWith('https://')) {
-        // Já é uma URL absoluta
-        // Para URLs do Firebase Storage, tenta usar diretamente primeiro
-        try {
-          const url = new URL(processedUri);
-          const normalizedUrl = url.toString();
-          setFinalUrl(normalizedUrl);
-        } catch (e) {
-          setFinalUrl(processedUri);
-        }
-      } else if (processedUri.startsWith('/')) {
-        // Caminho relativo - constrói URL completa
-        const baseUrl = getBaseUrl().replace('/api', '');
-        setFinalUrl(`${baseUrl}${processedUri}`);
-      } else {
-        setFinalUrl(null);
-      }
-    }
-
-    loadImage();
-  }, [uri]);
-
-  // Função para renovar o token via endpoint proxy
-  const renewToken = async (firebaseUrl: string) => {
-    try {
-      setIsRenewing(true);
-  
-      // ⚠️ Envie a URL crua; o axios já faz o encode dos query params.
-      const response = await api.get('/mobile/v1/image-proxy', {
-        params: { url: firebaseUrl },
-      });
-  
-      if (response.data?.url) {
-        setFinalUrl(response.data.url);
-        setImageError(false);
-      } else {
-        setImageError(true);
-      }
-    } catch (error: any) {
-      setImageError(true);
-    } finally {
-      setIsRenewing(false);
-    }
-  };
-  
-
-  // Se não houver URL ou houver erro, mostra placeholder
-  if (!finalUrl || (imageError && !isRenewing)) {
-    return <Image source={placeholder} style={style} resizeMode="cover" />;
-  }
-
-  // Se estiver renovando, mostra placeholder
-  if (isRenewing) {
-    return <Image source={placeholder} style={style} resizeMode="cover" />;
-  }
-
-  // Tenta carregar a imagem diretamente
-  // Se houver erro 403, tenta renovar o token via endpoint proxy
-  return (
-    <Image
-      source={{ uri: finalUrl }}
-      style={style}
-      resizeMode="cover"
-      onError={(error) => {
-        const errorMsg = error.nativeEvent?.error || 'Unknown error';
-        const is403 = errorMsg.includes('403') || errorMsg.includes('Forbidden');
-        
-        if (is403 && finalUrl && finalUrl.includes('firebasestorage.googleapis.com')) {
-          // Se for erro 403 em URL do Firebase Storage, tenta renovar o token
-          renewToken(finalUrl);
-        } else {
-          setImageError(true);
-        }
-      }}
-    />
-  );
-}
 
 // Helper para obter o nome correto da fonte Inter baseado no fontWeight
 function getInterFont(fontWeight?: string | number): string {
@@ -341,10 +235,10 @@ export default function DashboardScreen() {
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarCircle}>
                   {data.aluno.avatarUrl ? (
-                    <Image
-                      source={{ uri: data.aluno.avatarUrl }}
+                    <CachedImage
+                      uri={data.aluno.avatarUrl}
                       style={styles.avatarImage}
-                      resizeMode="contain"
+                      contentFit="contain"
                     />
                   ) : (
                     <View style={styles.avatarPlaceholder}>
@@ -543,10 +437,9 @@ export default function DashboardScreen() {
               activeOpacity={0.85}
               onPress={handleOpenUltimoCurso}
             >
-              <ImageWithFallback
+              <CachedImage
                 uri={data.ultimoCurso.imagemUrl}
                 style={styles.cursoImage}
-                placeholder={placeholderImage}
               />
               <View style={styles.cursoContent}>
                 <Text style={styles.cursoTitle}>{data.ultimoCurso.titulo}</Text>
@@ -596,10 +489,9 @@ export default function DashboardScreen() {
               onPress={handleOpenUltimaTrilha}
               activeOpacity={0.85}
             >
-              <ImageWithFallback
+              <CachedImage
                 uri={ultimaTrilha.imagemUrl}
                 style={styles.cursoImage}
-                placeholder={placeholderImage}
               />
               <View style={styles.cursoContent}>
                 <Text style={styles.cursoTitle}>{ultimaTrilha.titulo}</Text>
