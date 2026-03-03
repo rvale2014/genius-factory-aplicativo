@@ -91,7 +91,7 @@ O `getAllKeys()` retorna todas as chaves salvas no app — não apenas as do blo
 
 ---
 
-### P1-04 — Loop de polling bloqueante de até 14.4 segundos
+### P1-04 — Loop de polling bloqueante de até 14.4 segundos ✅ Concluído
 
 **Arquivo:** `app/(app)/simulados/[id]/resolver.tsx:347-351`
 
@@ -238,7 +238,7 @@ Em um simulado de 60 questões, cada keystroke causa: 60 iterações no reduce +
 
 ---
 
-### P2-02 — ScrollView com `.map()` nas conquistas (sem virtualização)
+### P2-02 — ScrollView com `.map()` nas conquistas (sem virtualização) ✅ Concluído
 
 **Arquivo:** `app/(app)/conquistas.tsx:149-157`
 
@@ -262,7 +262,7 @@ O `ScrollView` renderiza todos os seus filhos imediatamente, mesmo os que estão
 
 ---
 
-### P2-03 — 50+ modais simultâneos na memória (conquistas)
+### P2-03 — 50+ modais simultâneos na memória (conquistas) ✅ Concluído
 
 **Arquivo:** `app/(app)/conquistas.tsx:40-49` e `125-148`
 
@@ -289,7 +289,7 @@ Com 50 conquistas, são 50 componentes `Modal` do React Native montados na árvo
 
 ---
 
-### P2-04 — Sub-componentes de resultado de simulado não memoizados
+### P2-04 — Sub-componentes de resultado de simulado não memoizados ✅ Concluído
 
 **Arquivo:** `app/(app)/simulados/[id]/resultado.tsx`
 
@@ -332,7 +332,7 @@ A cada render do `AppLayout` (que acontece em toda navegação entre tabs), o Re
 
 ---
 
-### P2-06 — Callbacks inline em tela de curso
+### P2-06 — Callbacks inline em tela de curso ✅ Concluído
 
 **Arquivo:** `app/(app)/cursos/[id].tsx`
 
@@ -358,7 +358,7 @@ Além disso, `handleVideoEnded` (linha 290) depende de `toggleConteudo`, que dep
 
 ---
 
-### P2-07 — Ranking carrega 100 itens sem paginação
+### P2-07 — Ranking carrega 100 itens sem paginação ✅ Concluído
 
 **Arquivo:** `app/(app)/ranking.tsx:112`
 
@@ -376,7 +376,7 @@ O payload de 100 alunos (com nome, avatar URL, pontuação) é transferido intei
 
 ---
 
-### P2-08 — Recarregamento silencioso em toda troca de tab
+### P2-08 — Recarregamento silencioso em toda troca de tab ✅ Concluído
 
 **Arquivos:**
 - `app/(app)/trilhas.tsx:118-124`
@@ -403,7 +403,7 @@ Ao navegar entre tabs, cada tab dispara um fetch ao backend. Se o aluno alterna 
 
 ---
 
-### P3-01 — `setTimeout` sem cleanup (risco de setState após unmount)
+### P3-01 — `setTimeout` sem cleanup (risco de setState após unmount) ✅ Concluído
 
 **Arquivos:**
 - `app/(app)/cursos/[id].tsx:285-289` — 3 segundos para avançar vídeo
@@ -428,7 +428,7 @@ Se o componente desmonta antes do timer disparar (ex: o aluno volta para a tela 
 
 ---
 
-### P3-02 — `Dimensions.get('window')` no nível do módulo
+### P3-02 — `Dimensions.get('window')` no nível do módulo ✅ Concluído
 
 **Arquivos:**
 - `app/(app)/cursos/[id].tsx:36`
@@ -445,6 +445,8 @@ Definido fora do componente, no nível do módulo.
 O valor é capturado uma única vez no momento do import. Se o dispositivo rotaciona ou o app entra em modo split-screen, as dimensões ficam desatualizadas. Layouts que dependem dessas constantes ficam quebrados até o app ser reiniciado.
 
 **Correção sugerida:** Usar `useWindowDimensions()` dentro do componente.
+
+**Reavaliação:** Não é um problema real. O `Dimensions.get('window')` no escopo do módulo roda uma única vez durante o import — leitura síncrona de valor já computado pelo React Native, sem custo mensurável. Seria problemático apenas se o app precisasse reagir dinamicamente a rotação de tela, o que não é o caso. Converter para `useWindowDimensions()` não traria ganho perceptível.
 
 ---
 
@@ -486,7 +488,7 @@ Um effect vazio ainda é registrado pelo React e executado a cada mudança de de
 
 ---
 
-### P3-05 — Estado `isPlaying` dessincronizado no PaginaVideo
+### P3-05 — Estado `isPlaying` dessincronizado no PaginaVideo ✅ Concluído
 
 **Arquivo:** `components/video/PaginaVideo.tsx:23`
 
@@ -500,7 +502,7 @@ Se o vídeo é pausado por um evento externo (ex: interrupção de áudio, fim d
 
 ---
 
-### P3-06 — `getInterFont()` chamada dentro de `StyleSheet.create`
+### P3-06 — `getInterFont()` chamada dentro de `StyleSheet.create` ✅ Concluído
 
 **Arquivos:** `app/(app)/cursos/[id].tsx:541-735` e vários outros.
 
@@ -520,9 +522,11 @@ São 12+ chamadas por arquivo em média.
 
 **Correção sugerida:** Impacto mínimo. Pode ser substituído por literals se houver refatoração no arquivo.
 
+**Reavaliação:** Não é um problema real. O `getInterFont()` é função pura com lógica trivial (3 comparações) chamada dentro de `StyleSheet.create()`, que executa apenas uma vez no import. O resultado fica armazenado no objeto estático de estilos — não há recálculo a cada render. Converter para constantes pré-computadas não traria ganho perceptível e adicionaria complexidade desnecessária.
+
 ---
 
-### P3-07 — CachedImage sem limite de retries para token Firebase
+### P3-07 — CachedImage sem limite de retries para token Firebase ✅ Concluído
 
 **Arquivo:** `components/CachedImage.tsx:52-69`
 
@@ -536,7 +540,7 @@ Em uma tela com 20 imagens cujo token está permanentemente expirado (ex: imagem
 
 ---
 
-### P3-08 — Callbacks não estabilizados passados para efeitos de vídeo/áudio
+### P3-08 — Callbacks não estabilizados passados para efeitos de vídeo/áudio ✅ Concluído
 
 **Arquivos:**
 - `components/video/PaginaVideo.tsx:59` — `onMarcarConcluida` no `useEffect`
@@ -572,23 +576,23 @@ Se o componente pai não envolver o callback em `useCallback`, a referência mud
 | **P1-06** | FlatList sem otimização em questões | Baixo | Médio | **Alta** | ✅ Concluído (não é problema real) |
 | **P1-08** | console.log/error em produção | Baixo | Médio | **Alta** | ✅ Concluído |
 | **P1-03** | getAllKeys() scan no AsyncStorage | Médio | Médio | **Média** | ✅ Concluído |
-| **P1-04** | Polling bloqueante de 14.4s no resolver | Médio | Médio | **Média** | |
+| **P1-04** | Polling bloqueante de 14.4s no resolver | Médio | Médio | **Média** | ✅ Concluído |
 | **P2-01** | ProgressHeader re-render a cada keystroke | Baixo | Médio | **Média** | ✅ Concluído |
-| **P2-02** | ScrollView + .map() nas conquistas | Baixo | Médio | **Média** | |
-| **P2-03** | 50+ modais simultâneos nas conquistas | Médio | Médio | **Média** | |
-| **P2-07** | Ranking sem paginação (100 itens) | Baixo | Médio | **Média** | |
-| **P2-08** | Recarregamento silencioso em toda troca de tab | Médio | Médio | **Média** | |
-| **P2-04** | Sub-componentes de resultado não memoizados | Baixo | Baixo | **Média** | |
+| **P2-02** | ScrollView + .map() nas conquistas | Baixo | Médio | **Média** | ✅ Concluído |
+| **P2-03** | 50+ modais simultâneos nas conquistas | Médio | Médio | **Média** | ✅ Concluído |
+| **P2-07** | Ranking sem paginação (100 itens) | Baixo | Médio | **Média** | ✅ Concluído |
+| **P2-08** | Recarregamento silencioso em toda troca de tab | Médio | Médio | **Média** | ✅ Concluído |
+| **P2-04** | Sub-componentes de resultado não memoizados | Baixo | Baixo | **Média** | ✅ Concluído |
 | **P2-05** | Tab bar recriada a cada render | Baixo | Baixo | **Baixa** | ✅ Concluído |
-| **P2-06** | Callbacks inline em cursos/[id] | Baixo | Baixo | **Baixa** | |
-| **P3-01** | setTimeout sem cleanup | Baixo | Baixo | **Baixa** | |
-| **P3-02** | Dimensions.get no nível do módulo | Baixo | Baixo | **Baixa** | |
+| **P2-06** | Callbacks inline em cursos/[id] | Baixo | Baixo | **Baixa** | ✅ Concluído |
+| **P3-01** | setTimeout sem cleanup | Baixo | Baixo | **Baixa** | ✅ Concluído |
+| **P3-02** | Dimensions.get no nível do módulo | Baixo | Baixo | **Baixa** | ✅ Concluído (não é problema real) |
 | **P3-03** | onSessionLoaded inline no root layout | Baixo | Baixo | **Baixa** | ✅ Concluído |
 | **P3-04** | useEffect vazio | Baixo | Nenhum | **Baixa** | ✅ Concluído |
-| **P3-05** | isPlaying dessincronizado no PaginaVideo | Baixo | Baixo | **Baixa** | |
-| **P3-06** | getInterFont() em StyleSheet.create | Baixo | Nenhum | **Baixa** | |
-| **P3-07** | CachedImage sem limite de retries | Baixo | Baixo | **Baixa** | |
-| **P3-08** | Callbacks não estabilizados em vídeo/áudio | Baixo | Baixo | **Baixa** | |
+| **P3-05** | isPlaying dessincronizado no PaginaVideo | Baixo | Baixo | **Baixa** | ✅ Concluído |
+| **P3-06** | getInterFont() em StyleSheet.create | Baixo | Nenhum | **Baixa** | ✅ Concluído (não é problema real) |
+| **P3-07** | CachedImage sem limite de retries | Baixo | Baixo | **Baixa** | ✅ Concluído |
+| **P3-08** | Callbacks não estabilizados em vídeo/áudio | Baixo | Baixo | **Baixa** | ✅ Concluído |
 
 ### Legenda
 

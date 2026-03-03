@@ -50,9 +50,9 @@ export default function DashboardScreen() {
 
   const carregarDashboard = useCallback(async (silencioso = false) => {
     try {
-      // Evita carregamentos muito próximos (debounce de 2 segundos)
+      // Evita carregamentos muito próximos (debounce de 5 segundos)
       const agora = Date.now();
-      if (agora - lastLoadRef.current < 2000 && !silencioso) {
+      if (agora - lastLoadRef.current < 5000) {
         return;
       }
       lastLoadRef.current = agora;
@@ -101,6 +101,7 @@ export default function DashboardScreen() {
 
       const dados = await obterDashboard();
       setData(dados);
+      lastLoadRef.current = Date.now();
       primeAlunoHeaderCache({
         nome: dados.aluno.nome,
         avatarUrl: dados.aluno.avatarUrl,

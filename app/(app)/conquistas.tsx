@@ -1,11 +1,12 @@
 // app/(app)/conquistas.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image as ExpoImage } from 'expo-image';
 import {
   ActivityIndicator,
   Dimensions,
+  FlatList,
   Image,
   Modal,
   Pressable,
@@ -36,107 +37,88 @@ function getInterFont(fontWeight?: string | number): string {
   return 'Inter-Regular';
 }
 
-// Card individual de conquista
-function ConquistaCard({ conquista }: { conquista: ConquistaItem }) {
-  const [tooltipVisible, setTooltipVisible] = useState(false);
-
-  const handleLongPress = () => {
-    setTooltipVisible(true);
-  };
-
-  const closeTooltip = () => {
-    setTooltipVisible(false);
-  };
+// Card individual de conquista (sem Modal próprio — usa o compartilhado da tela)
+const ConquistaCard = React.memo(function ConquistaCard({
+  conquista,
+  onPress,
+}: {
+  conquista: ConquistaItem;
+  onPress: (c: ConquistaItem) => void;
+}) {
+  const handlePress = useCallback(() => onPress(conquista), [onPress, conquista]);
 
   return (
-    <>
-      <View style={styles.conquistaCardWrapper}>
-        <Pressable
-          style={styles.conquistaCard}
-          onPress={() => setTooltipVisible(true)}
-          onLongPress={handleLongPress}
-          delayLongPress={300}
+    <View style={styles.conquistaCardWrapper}>
+      <Pressable
+        style={styles.conquistaCard}
+        onPress={handlePress}
+        onLongPress={handlePress}
+        delayLongPress={300}
+      >
+        <TouchableOpacity
+          style={styles.infoButton}
+          onPress={handlePress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <TouchableOpacity
-            style={styles.infoButton}
-            onPress={() => setTooltipVisible(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="information-circle-outline" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-          <View style={styles.cardImageContainer}>
-            <ExpoImage
-              source={{ uri: conquista.imagemUrl }}
-              style={[styles.cardImage, !conquista.desbloqueada && styles.grayscaleImage]}
-              contentFit="contain"
-              cachePolicy="disk"
-              transition={{ duration: 200 }}
-            />
-          </View>
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {conquista.titulo || conquista.nome}
-          </Text>
-          <View
+          <Ionicons name="information-circle-outline" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
+        <View style={styles.cardImageContainer}>
+          <ExpoImage
+            source={{ uri: conquista.imagemUrl }}
+            style={[styles.cardImage, !conquista.desbloqueada && styles.grayscaleImage]}
+            contentFit="contain"
+            cachePolicy="disk"
+            transition={{ duration: 200 }}
+          />
+        </View>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {conquista.titulo || conquista.nome}
+        </Text>
+        <View
+          style={[
+            styles.cardBadge,
+            conquista.desbloqueada ? styles.badgeDesbloqueada : styles.badgeBloqueada,
+          ]}
+        >
+          <Ionicons
+            name={conquista.desbloqueada ? 'checkmark-circle' : 'lock-closed'}
+            size={12}
+            color={conquista.desbloqueada ? '#A855F7' : '#60A5FA'}
+          />
+          <Text
             style={[
-              styles.cardBadge,
-              conquista.desbloqueada ? styles.badgeDesbloqueada : styles.badgeBloqueada,
+              styles.badgeText,
+              conquista.desbloqueada ? styles.badgeTextDesbloqueada : styles.badgeTextBloqueada,
             ]}
           >
-            <Ionicons
-              name={conquista.desbloqueada ? 'checkmark-circle' : 'lock-closed'}
-              size={12}
-              color={conquista.desbloqueada ? '#A855F7' : '#60A5FA'}
-            />
-            <Text
-              style={[
-                styles.badgeText,
-                conquista.desbloqueada ? styles.badgeTextDesbloqueada : styles.badgeTextBloqueada,
-              ]}
-            >
-              {conquista.desbloqueada ? 'Desbloqueada' : 'Bloqueada'}
-            </Text>
-          </View>
-        </Pressable>
-      </View>
-
-      {/* Tooltip Modal */}
-      <Modal
-        visible={tooltipVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeTooltip}
-      >
-        <Pressable style={styles.tooltipOverlay} onPress={closeTooltip}>
-          <View style={styles.tooltipContainer}>
-            <View style={styles.tooltipHeader}>
-              <Text style={styles.tooltipTitle}>{conquista.titulo}</Text>
-              <TouchableOpacity onPress={closeTooltip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.tooltipDivider} />
-            <Text style={styles.tooltipSectionTitle}>Descrição</Text>
-            <Text style={styles.tooltipText}>{conquista.descricao}</Text>
-            <Text style={styles.tooltipSectionTitle}>Critério</Text>
-            <Text style={styles.tooltipText}>{conquista.criterio}</Text>
-          </View>
-        </Pressable>
-      </Modal>
-    </>
+            {conquista.desbloqueada ? 'Desbloqueada' : 'Bloqueada'}
+          </Text>
+        </View>
+      </Pressable>
+    </View>
   );
-}
+});
 
-// Seção de categoria com scroll horizontal
+// Seção de categoria com scroll horizontal virtualizado
 function CategoriaSection({
   titulo,
   conquistas,
+  onCardPress,
 }: {
   titulo: string;
   conquistas: ConquistaItem[];
+  onCardPress: (c: ConquistaItem) => void;
 }) {
   const desbloqueadas = conquistas.filter((c) => c.desbloqueada).length;
   const total = conquistas.length;
   const percentual = total > 0 ? Math.round((desbloqueadas / total) * 100) : 0;
+
+  const renderCard = useCallback(
+    ({ item }: { item: ConquistaItem }) => (
+      <ConquistaCard conquista={item} onPress={onCardPress} />
+    ),
+    [onCardPress],
+  );
 
   return (
     <View style={styles.categoriaSection}>
@@ -146,18 +128,19 @@ function CategoriaSection({
           {desbloqueadas}/{total} ({percentual}%)
         </Text>
       </View>
-      <ScrollView
+      <FlatList
+        data={conquistas}
+        keyExtractor={keyExtractorConquista}
+        renderItem={renderCard}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.conquistasScroll}
-      >
-        {conquistas.map((conquista) => (
-          <ConquistaCard key={conquista.id} conquista={conquista} />
-        ))}
-      </ScrollView>
+      />
     </View>
   );
 }
+
+const keyExtractorConquista = (item: ConquistaItem) => item.id;
 
 export default function ConquistasScreen() {
   const router = useRouter();
@@ -165,7 +148,17 @@ export default function ConquistasScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [conquistas, setConquistas] = useState<ConquistaItem[]>([]);
   const [tabAtiva, setTabAtiva] = useState<'conquistas' | 'especiais'>('conquistas');
+  const [conquistaSelecionada, setConquistaSelecionada] = useState<ConquistaItem | null>(null);
   const initialLoadedRef = useRef(false);
+  const lastFetchRef = useRef<number>(0);
+
+  const handleCardPress = useCallback((c: ConquistaItem) => {
+    setConquistaSelecionada(c);
+  }, []);
+
+  const fecharModal = useCallback(() => {
+    setConquistaSelecionada(null);
+  }, []);
 
   const carregar = useCallback(async () => {
     try {
@@ -179,14 +172,17 @@ export default function ConquistasScreen() {
     } finally {
       setLoading(false);
       initialLoadedRef.current = true;
+      lastFetchRef.current = Date.now();
     }
   }, []);
 
-  // Função de recarregamento silencioso (sem mostrar loading)
+  // Função de recarregamento silencioso (sem mostrar loading, com debounce de 5s)
   const recarregarSilencioso = useCallback(async () => {
+    if (Date.now() - lastFetchRef.current < 5000) return;
     try {
       const dados = await obterConquistas();
       setConquistas(dados.conquistas);
+      lastFetchRef.current = Date.now();
     } catch (e: any) {
       // Erro silencioso - não mostra mensagem para não interromper a experiência
     }
@@ -297,7 +293,7 @@ export default function ConquistasScreen() {
           <>
             {Object.entries(categorias).map(([categoria, items]) =>
               items.length > 0 ? (
-                <CategoriaSection key={categoria} titulo={categoria} conquistas={items} />
+                <CategoriaSection key={categoria} titulo={categoria} conquistas={items} onCardPress={handleCardPress} />
               ) : null
             )}
           </>
@@ -306,7 +302,7 @@ export default function ConquistasScreen() {
             {conquistasEspeciais.length > 0 ? (
               <View style={styles.especialGrid}>
                 {conquistasEspeciais.map((conquista) => (
-                  <ConquistaCard key={conquista.id} conquista={conquista} />
+                  <ConquistaCard key={conquista.id} conquista={conquista} onPress={handleCardPress} />
                 ))}
               </View>
             ) : (
@@ -319,6 +315,30 @@ export default function ConquistasScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal único compartilhado para detalhes da conquista */}
+      <Modal
+        visible={conquistaSelecionada !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={fecharModal}
+      >
+        <Pressable style={styles.tooltipOverlay} onPress={fecharModal}>
+          <View style={styles.tooltipContainer}>
+            <View style={styles.tooltipHeader}>
+              <Text style={styles.tooltipTitle}>{conquistaSelecionada?.titulo}</Text>
+              <TouchableOpacity onPress={fecharModal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.tooltipDivider} />
+            <Text style={styles.tooltipSectionTitle}>Descrição</Text>
+            <Text style={styles.tooltipText}>{conquistaSelecionada?.descricao}</Text>
+            <Text style={styles.tooltipSectionTitle}>Critério</Text>
+            <Text style={styles.tooltipText}>{conquistaSelecionada?.criterio}</Text>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

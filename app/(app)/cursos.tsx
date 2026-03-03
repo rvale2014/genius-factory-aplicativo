@@ -43,6 +43,7 @@ export default function CursosScreen() {
   );
   const canLoadMore = useMemo(() => page < totalPages, [page, totalPages]);
   const initialLoadedRef = useRef(false);
+  const lastFetchRef = useRef<number>(0);
 
   // carregar primeira página (ou quando filtro muda)
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function CursosScreen() {
         if (active) {
           setLoading(false);
           initialLoadedRef.current = true;
+          lastFetchRef.current = Date.now();
         }
       }
     }
@@ -78,8 +80,9 @@ export default function CursosScreen() {
     return () => { active = false; };
   }, [ano]);
 
-  // Função de recarregamento silencioso (sem mostrar loading)
+  // Função de recarregamento silencioso (sem mostrar loading, com debounce de 5s)
   const recarregarSilencioso = useCallback(async () => {
+    if (Date.now() - lastFetchRef.current < 5000) return;
     try {
       setErro(null);
 
@@ -92,16 +95,18 @@ export default function CursosScreen() {
       setItens(res.items);
       setPage(1);
       setTotalItems(res.total);
+      lastFetchRef.current = Date.now();
     } catch (e: any) {
       // Erro silencioso - não mostra mensagem para não interromper a experiência
     }
   }, [ano]);
 
-  // pull to refresh
+  // pull to refresh (reseta debounce para forçar reload)
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
       setErro(null);
+      lastFetchRef.current = 0;
 
       const res = await listarCursos({
         ano,
@@ -112,6 +117,7 @@ export default function CursosScreen() {
       setItens(res.items);
       setPage(1);
       setTotalItems(res.total);
+      lastFetchRef.current = Date.now();
     } catch (e: any) {
       setErro('Falha ao atualizar a lista.');
     } finally {

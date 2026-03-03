@@ -50,6 +50,9 @@ type SimuladoResumo = {
   questoes: Questao[];
 };
 
+// ====== Constantes ======
+const POLLING_DELAYS = [500, 800, 1100, 1400, 1700, 2000, 2500];
+
 // ====== Helpers ======
 function formatarHHMMSS(segundos: number) {
   const h = Math.floor(segundos / 3600).toString().padStart(2, "0");
@@ -171,6 +174,8 @@ export default function ResolverSimuladoScreen() {
 
   const respostasRef = useRef(respostas);
   useEffect(() => { respostasRef.current = respostas; }, [respostas]);
+
+  const cancelPollingRef = useRef(false);
   
   // Ref para o ScrollView (para controlar scroll ao topo ao mudar de questão)
   const scrollViewRef = useRef<ScrollView>(null);
@@ -181,6 +186,7 @@ export default function ResolverSimuladoScreen() {
       setIsFocused(true);
       return () => {
         setIsFocused(false);
+        cancelPollingRef.current = true;
       };
     }, [])
   );
@@ -266,9 +272,10 @@ export default function ResolverSimuladoScreen() {
   useEffect(() => {
     if (paginaAtual > 1) {
       // Aguarda um pequeno delay para garantir que o conteúdo foi renderizado
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [paginaAtual]);
 
@@ -328,6 +335,7 @@ export default function ResolverSimuladoScreen() {
 
   async function concluir() {
     if (!simulado) return;
+    cancelPollingRef.current = false;
     try {
       setFinalizando(true);
 
@@ -339,25 +347,30 @@ export default function ResolverSimuladoScreen() {
 
       await responderSimulado(simulado.id, payload);
 
-      // se houver dissertativas, roda polling de avaliação
+      // se houver dissertativas, roda polling de avaliação com backoff gradual
       const temDissertativa = simulado.questoes.some((q) => q.tipo === "dissertativa");
       if (temDissertativa) {
-        // polling simples: tenta até zerar 'restantes' com backoff leve
-        // evita loop infinito com um teto de iterações
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < POLLING_DELAYS.length; i++) {
+          if (cancelPollingRef.current) break;
           const r = await avaliarPendentes(simulado.id);
           if (!r || r.restantes === 0) break;
-          await new Promise((res) => setTimeout(res, 1200));
+          if (cancelPollingRef.current) break;
+          await new Promise((res) => setTimeout(res, POLLING_DELAYS[i]));
         }
       }
+
+      if (cancelPollingRef.current) return;
 
       // navega para resultado
       router.replace(`/simulados/${simulado.id}/resultado`);
     } catch (e) {
       console.error(e);
+      if (cancelPollingRef.current) return;
       Alert.alert("Erro", "Não foi possível concluir o simulado agora. Tente novamente.");
     } finally {
-      setFinalizando(false);
+      if (!cancelPollingRef.current) {
+        setFinalizando(false);
+      }
     }
   }
 

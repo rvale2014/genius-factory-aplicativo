@@ -3,7 +3,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -256,6 +256,15 @@ export default function CursoDetalhesScreen() {
     }
   }, []);
 
+  // Selecionar aula (extraído do inline)
+  const handleSelecionarAula = useCallback((aula: Aula) => {
+    setAulaSelecionada(aula);
+    registrarVisualizacaoAula(aula.id);
+  }, []);
+
+  // Callback vazio estável para erros de vídeo
+  const handleVideoError = useCallback(() => {}, []);
+
   // Exibir próxima conquista
   const exibirProximaConquista = useCallback(() => {
     setFilaConquistas((prev) => {
@@ -266,6 +275,9 @@ export default function CursoDetalhesScreen() {
       return resto;
     });
   }, []);
+
+  // Ref para limpar o timeout de auto-avanço
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Quando vídeo termina
   const handleVideoEnded = useCallback(() => {
@@ -279,13 +291,28 @@ export default function CursoDetalhesScreen() {
       toggleConteudo(videoAtual.conteudo.id, videoAtual.aula.id, false);
     }
 
+    // Limpar timeout anterior se existir
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+    }
+
     // Avançar automaticamente após 3 segundos
-    setTimeout(() => {
+    autoAdvanceTimerRef.current = setTimeout(() => {
       if (indiceVideoAtual < totalVideos - 1) {
         avancar();
       }
+      autoAdvanceTimerRef.current = null;
     }, 3000);
   }, [videoAtual, statusAulas, toggleConteudo, indiceVideoAtual, totalVideos, avancar]);
+
+  // Cleanup do timer de auto-avanço no unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+      }
+    };
+  }, []);
 
   // 📚 Abrir PDF
   const handleAbrirPdf = useCallback(async (url: string, titulo: string) => {
@@ -411,7 +438,7 @@ export default function CursoDetalhesScreen() {
                 <VideoPlayer
                   uri={videoAtual.conteudo.url}
                   onEnded={handleVideoEnded}
-                  onError={() => {}}
+                  onError={handleVideoError}
                 />
               </View>
               {indiceVideoAtual < totalVideos - 1 && (
@@ -497,10 +524,7 @@ export default function CursoDetalhesScreen() {
         avaliacoes={avaliacoes}
         aulaSelecionadaId={aulaSelecionada?.id || null}
         videoAtualId={videoAtual?.conteudo.id || null}
-        onSelecionarAula={(aula) => {
-          setAulaSelecionada(aula);
-          registrarVisualizacaoAula(aula.id);
-        }}
+        onSelecionarAula={handleSelecionarAula}
         onSelecionarVideo={irParaVideoPorId}
         onAvaliarAula={handleAvaliarAula}
         onToggleConteudo={toggleConteudo}

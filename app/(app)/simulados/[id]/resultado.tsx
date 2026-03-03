@@ -157,13 +157,22 @@ export default function ResultadoScreen() {
   const prog = totalDissert > 0 ? Math.round((corrigidas / totalDissert) * 100) : 0;
 
   // donut (dois arcos)
-  const size = 180, cx = size/2, cy=cx, r=70;
-  const start = -Math.PI/2;
-  const endAcertos = start + 2*Math.PI*(total ? acertos/total : 0);
   const coinsBase = 50;
   const coinsTarget = coinsPorPercentual(perc);
   const coinsExtra = Math.max(coinsTarget - coinsBase, 0);
   const coinsReward = temDissertPend ? coinsBase : coinsTarget;
+
+  const donutConfig = React.useMemo(() => {
+    const size = 180, cx = size / 2, cy = cx, r = 70;
+    const start = -Math.PI / 2;
+    const endAcertos = start + 2 * Math.PI * (total ? acertos / total : 0);
+    return { size, cx, cy, r, start, endAcertos };
+  }, [total, acertos]);
+
+  const handlePressQuestao = React.useCallback((index: number) => {
+    setIdxAtual(index);
+    setOpenSheet(true);
+  }, []);
 
   // ✅ NOVO: Encerrar simulado de trilha
   async function encerrarSimuladoTrilha() {
@@ -284,13 +293,13 @@ export default function ResultadoScreen() {
           acertos={acertos}
           erros={erros}
           total={total}
-          donutConfig={{ size, cx, cy, r, start, endAcertos }}
+          donutConfig={donutConfig}
         />
 
         <ComentariosCard
           questoes={data.questoes}
           idsOrdenados={idsOrdenados}
-          onPressQuestao={(index) => { setIdxAtual(index); setOpenSheet(true); }}
+          onPressQuestao={handlePressQuestao}
         />
 
         <View style={styles.actionsRow}>
@@ -328,7 +337,7 @@ export default function ResultadoScreen() {
   );
 }
 
-function ResumoCard({
+const ResumoCard = React.memo(function ResumoCard({
   total,
   acertos,
   erros,
@@ -407,9 +416,9 @@ function ResumoCard({
       )}
     </View>
   );
-}
+});
 
-function DissertativasStatusCard({
+const DissertativasStatusCard = React.memo(function DissertativasStatusCard({
   pendente,
   corrigidas,
   total,
@@ -438,9 +447,9 @@ function DissertativasStatusCard({
       </View>
     </View>
   );
-}
+});
 
-function DesempenhoCard({
+const DesempenhoCard = React.memo(function DesempenhoCard({
   perc,
   acertos,
   erros,
@@ -531,9 +540,9 @@ function DesempenhoCard({
       )}
     </View>
   );
-}
+});
 
-function ComentariosCard({
+const ComentariosCard = React.memo(function ComentariosCard({
   questoes,
   idsOrdenados,
   onPressQuestao,
@@ -579,18 +588,18 @@ function ComentariosCard({
       </View>
     </View>
   );
-}
+});
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+const LegendDot = React.memo(function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <View style={styles.legendItem}>
       <View style={[styles.legendDot, { backgroundColor: color }]} />
       <Text style={styles.legendText}>{label}</Text>
     </View>
   );
-}
+});
 
-function BarRow({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
+const BarRow = React.memo(function BarRow({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const percent = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <View style={styles.barRow}>
@@ -601,7 +610,7 @@ function BarRow({ label, value, total, color }: { label: string; value: number; 
       <Text style={styles.barValue}>{value}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },

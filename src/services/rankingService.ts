@@ -18,6 +18,7 @@ export interface RankingItem {
 
 export interface RankingData {
   tipo: 'geral' | 'semanal';
+  total?: number;
   ranking: RankingItem[];
   minhaPosicao: {
     posicao: number;
@@ -29,6 +30,7 @@ export interface RankingData {
 export interface RankingParams {
   tipo?: 'geral' | 'semanal';
   limit?: number;
+  offset?: number;
 }
 
 /**
@@ -43,6 +45,10 @@ export async function obterRanking(params: RankingParams = {}): Promise<RankingD
   
   if (params.limit) {
     queryParams.set('limit', params.limit.toString());
+  }
+
+  if (params.offset !== undefined && params.offset > 0) {
+    queryParams.set('offset', params.offset.toString());
   }
 
   const url = `/mobile/v1/ranking${queryParams.toString() ? `?${queryParams}` : ''}`;

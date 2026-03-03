@@ -2,7 +2,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
@@ -97,20 +97,32 @@ function AvatarItem({
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function RankingScreen() {
   const router = useRouter();
-  const [data, setData] = useState<RankingData | null>(null);
+  const [ranking, setRanking] = useState<RankingItem[]>([]);
+  const [minhaPosicao, setMinhaPosicao] = useState<RankingData['minhaPosicao']>(null);
+  const [tipo, setTipo] = useState<'geral' | 'semanal'>('geral');
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [tipoSelecionado, setTipoSelecionado] = useState<'geral' | 'semanal'>('geral');
   const initialLoadedRef = useRef(false);
+  const lastFetchRef = useRef<number>(0);
 
+  // Carrega a primeira página (reseta tudo)
   const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
       setErro(null);
-      const dados = await obterRanking({ tipo: tipoSelecionado, limit: 100 });
-      setData(dados);
+      const dados = await obterRanking({ tipo: tipoSelecionado, limit: PAGE_SIZE, offset: 0 });
+      setRanking(dados.ranking);
+      setMinhaPosicao(dados.minhaPosicao);
+      setTipo(dados.tipo);
+      setTotal(dados.total ?? dados.ranking.length);
+      lastFetchRef.current = Date.now();
     } catch (e: any) {
       console.error('Erro ao carregar ranking:', e);
       setErro('Não foi possível carregar o ranking. Tente novamente.');
@@ -120,11 +132,35 @@ export default function RankingScreen() {
     }
   }, [tipoSelecionado]);
 
-  // Função de recarregamento silencioso (sem mostrar loading)
-  const recarregarSilencioso = useCallback(async () => {
+  // Carrega próxima página
+  const carregarMais = useCallback(async () => {
+    if (loadingMore || ranking.length >= total) return;
     try {
-      const dados = await obterRanking({ tipo: tipoSelecionado, limit: 100 });
-      setData(dados);
+      setLoadingMore(true);
+      const dados = await obterRanking({
+        tipo: tipoSelecionado,
+        limit: PAGE_SIZE,
+        offset: ranking.length,
+      });
+      setRanking((prev) => [...prev, ...dados.ranking]);
+      setTotal(dados.total ?? total);
+    } catch (e: any) {
+      // Erro silencioso — o usuário pode tentar novamente scrollando
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [tipoSelecionado, ranking.length, total, loadingMore]);
+
+  // Recarregamento silencioso (primeira página, sem spinner, com debounce de 5s)
+  const recarregarSilencioso = useCallback(async () => {
+    if (Date.now() - lastFetchRef.current < 5000) return;
+    try {
+      const dados = await obterRanking({ tipo: tipoSelecionado, limit: PAGE_SIZE, offset: 0 });
+      setRanking(dados.ranking);
+      setMinhaPosicao(dados.minhaPosicao);
+      setTipo(dados.tipo);
+      setTotal(dados.total ?? dados.ranking.length);
+      lastFetchRef.current = Date.now();
     } catch (e: any) {
       // Erro silencioso - não mostra mensagem para não interromper a experiência
     }
@@ -179,17 +215,26 @@ export default function RankingScreen() {
     );
   };
 
+  const renderFooter = useCallback(() => {
+    if (!loadingMore) return null;
+    return (
+      <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+        <ActivityIndicator size="small" color="#FF5FDB" />
+      </View>
+    );
+  }, [loadingMore]);
+
   // Card do aluno logado no topo
   const renderMeuCard = () => {
-    if (!data?.minhaPosicao) return null;
+    if (!minhaPosicao) return null;
 
-    const meuItem = data.ranking.find((r) => r.posicao === data.minhaPosicao!.posicao);
+    const meuItem = ranking.find((r) => r.posicao === minhaPosicao.posicao);
     if (!meuItem) return null;
 
     const nomeExibicao = meuItem.nickname || meuItem.nome;
-    const pontos = tipoSelecionado === 'semanal' 
-      ? data.minhaPosicao.moedasSemana ?? 0 
-      : data.minhaPosicao.geniusCoins;
+    const pontos = tipoSelecionado === 'semanal'
+      ? minhaPosicao.moedasSemana ?? 0
+      : minhaPosicao.geniusCoins;
 
     return (
       <View style={styles.meuCard}>
@@ -203,13 +248,13 @@ export default function RankingScreen() {
                 size={56}
               />
               <View style={styles.meuCardBadge}>
-                <Text style={styles.meuCardBadgeText}>{data.minhaPosicao.posicao}</Text>
+                <Text style={styles.meuCardBadgeText}>{minhaPosicao.posicao}</Text>
               </View>
             </View>
             <View style={styles.meuCardInfo}>
               <Text style={styles.meuCardNome}>{nomeExibicao}</Text>
               <Text style={styles.meuCardPosicao}>
-                Você está na {data.minhaPosicao.posicao}ª posição
+                Você está na {minhaPosicao.posicao}ª posição
               </Text>
             </View>
           </View>
@@ -235,7 +280,7 @@ export default function RankingScreen() {
     );
   }
 
-  if (erro || !data) {
+  if (erro) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
@@ -243,14 +288,7 @@ export default function RankingScreen() {
           <Text style={styles.errorText}>{erro || 'Erro ao carregar dados'}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => {
-              setLoading(true);
-              setErro(null);
-              obterRanking({ tipo: tipoSelecionado, limit: 100 })
-                .then(setData)
-                .catch(() => setErro('Não foi possível carregar o ranking.'))
-                .finally(() => setLoading(false));
-            }}
+            onPress={carregarDados}
           >
             <Text style={styles.retryButtonText}>Tentar novamente</Text>
           </TouchableOpacity>
@@ -301,15 +339,20 @@ export default function RankingScreen() {
 
       {/* Conteúdo */}
       <FlatList
-        data={data.ranking}
-        keyExtractor={(item) => item.alunoId}
+        data={ranking}
+        keyExtractor={keyExtractorRanking}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onEndReached={carregarMais}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={renderFooter}
       />
     </SafeAreaView>
   );
 }
+
+const keyExtractorRanking = (item: RankingItem) => item.alunoId;
 
 const styles = StyleSheet.create({
   container: {

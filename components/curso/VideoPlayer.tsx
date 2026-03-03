@@ -2,7 +2,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -19,6 +19,12 @@ interface VideoPlayerProps {
 export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Refs para estabilizar callbacks e evitar re-subscrições desnecessárias
+  const onEndedRef = useRef(onEnded);
+  const onErrorRef = useRef(onError);
+  onEndedRef.current = onEnded;
+  onErrorRef.current = onError;
 
   const player = useVideoPlayer(uri, (player) => {
     player.loop = false;
@@ -42,12 +48,12 @@ export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
         const errorMsg = 'Erro ao reproduzir o vídeo';
         setError(errorMsg);
         setLoading(false);
-        onError?.(errorMsg);
+        onErrorRef.current?.(errorMsg);
       }
 
       // Vídeo terminou
       if (status === 'idle' && player.currentTime === player.duration && player.currentTime > 0) {
-        onEnded?.();
+        onEndedRef.current?.();
       }
     });
 
@@ -59,7 +65,7 @@ export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
     return () => {
       subscription.remove();
     };
-  }, [player, onEnded, onError]);
+  }, [player]);
 
   if (error) {
     return (

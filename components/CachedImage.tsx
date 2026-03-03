@@ -1,8 +1,10 @@
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image as RNImage, type ImageStyle, type StyleProp } from 'react-native';
 import { api } from '../src/lib/api';
 import { getBaseUrl } from '../src/lib/baseUrl';
+
+const MAX_RENEW_RETRIES = 2;
 
 const placeholderImage = require('../assets/images/logo_genius.webp');
 
@@ -22,10 +24,12 @@ export function CachedImage({
   const [imageError, setImageError] = useState(false);
   const [finalUrl, setFinalUrl] = useState<string | null>(null);
   const [isRenewing, setIsRenewing] = useState(false);
+  const renewRetryCount = useRef(0);
 
   useEffect(() => {
     setImageError(false);
     setIsRenewing(false);
+    renewRetryCount.current = 0;
 
     if (!uri || typeof uri !== 'string' || uri.trim() === '') {
       setFinalUrl(null);
@@ -86,7 +90,8 @@ export function CachedImage({
           typeof errorMsg === 'string' &&
           (errorMsg.includes('403') || errorMsg.includes('Forbidden'));
 
-        if (is403 && finalUrl.includes('firebasestorage.googleapis.com')) {
+        if (is403 && finalUrl.includes('firebasestorage.googleapis.com') && renewRetryCount.current < MAX_RENEW_RETRIES) {
+          renewRetryCount.current++;
           renewToken(finalUrl);
         } else {
           setImageError(true);

@@ -1,6 +1,6 @@
 // components/blocos/video/PaginaVideo.tsx
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 // ❌ REMOVER: import { Video, ResizeMode } from 'expo-av'
 // ✅ ADICIONAR:
@@ -20,7 +20,11 @@ export function PaginaVideo({
 }: Props) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true)
+
+  // Ref para estabilizar callback e evitar re-subscrições desnecessárias
+  const onMarcarConcluidaRef = useRef(onMarcarConcluida)
+  onMarcarConcluidaRef.current = onMarcarConcluida
 
   // ✅ NOVO: useVideoPlayer do expo-video
   const player = useVideoPlayer(videoUrl, player => {
@@ -34,12 +38,15 @@ export function PaginaVideo({
 
     const subscription = player.addListener('statusChange', () => {
       const status = player.status
-      
+
+      // Sincroniza isPlaying com o estado real do player
+      setIsPlaying(player.playing)
+
       if (status === 'idle' && player.currentTime === player.duration) {
         // Vídeo terminou
-        onMarcarConcluida()
+        onMarcarConcluidaRef.current()
       }
-      if (status === 'readyToPlay' && isLoading) {
+      if (status === 'readyToPlay') {
         setIsLoading(false)
       }
       if (status === 'error') {
@@ -56,7 +63,7 @@ export function PaginaVideo({
     return () => {
       subscription.remove()
     }
-  }, [player, onMarcarConcluida, isLoading])
+  }, [player])
 
   // Se é URL do YouTube, usa WebView (fallback)
   const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')

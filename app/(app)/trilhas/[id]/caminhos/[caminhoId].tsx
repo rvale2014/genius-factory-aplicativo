@@ -67,6 +67,7 @@ export default function CaminhoScreen() {
   // ✅ NOVO: Refs para controle de scroll
   const scrollViewRef = useRef<ScrollView>(null);
   const blocoPosicoes = useRef<Record<string, number>>({});
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Restaura o scroll para o bloco de referência quando retorna de "fora"
@@ -84,15 +85,17 @@ export default function CaminhoScreen() {
       }
       
       // Aguarda um pouco para garantir que os blocos foram renderizados e posições capturadas
-      setTimeout(() => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => {
         const posicaoY = blocoPosicoes.current[blocoRefId];
-        
+
         if (posicaoY !== undefined) {
-          scrollViewRef.current?.scrollTo({ 
+          scrollViewRef.current?.scrollTo({
             y: Math.max(0, posicaoY - 100), // Offset de 100px para não ficar colado no topo
-            animated: true 
+            animated: true
           });
         }
+        scrollTimerRef.current = null;
       }, 300); // Aguarda 300ms para garantir que o layout foi calculado
     } catch (error) {
       // Erro silencioso
@@ -115,6 +118,13 @@ export default function CaminhoScreen() {
       // Erro silencioso - não mostra mensagem para não interromper a experiência
     }
   }, [trilhaId, caminhoId, restaurarScrollParaBlocoReferencia]);
+
+  // Cleanup do timer de scroll ao desmontar
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
 
   // Carregamento inicial
   useEffect(() => {
