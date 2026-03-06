@@ -18,7 +18,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import RenderHTML from 'react-native-render-html';
+import RenderHTML from '@/components/shared/RenderHTMLWithLatex';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AudioPlayerSimple from './AudioPlayerSimple';
 import EstatisticasQuestao from './EstatisticasQuestao';

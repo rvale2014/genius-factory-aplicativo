@@ -1,11 +1,11 @@
 // components/blocos/video/PaginaVideo.tsx
 
-import React, { useRef, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-// ❌ REMOVER: import { Video, ResizeMode } from 'expo-av'
-// ✅ ADICIONAR:
 import { Ionicons } from '@expo/vector-icons'
 import { VideoView, useVideoPlayer } from 'expo-video'
+import { WebView } from 'react-native-webview'
+import { resolveVideoSource } from '@/src/lib/videoUtils'
 
 type Props = {
   videoUrl: string
@@ -18,32 +18,54 @@ export function PaginaVideo({
   atividadeTitulo,
   onMarcarConcluida,
 }: Props) {
+  const resolved = useMemo(() => resolveVideoSource(videoUrl), [videoUrl])
+
+  if (resolved.type === 'webview') {
+    return (
+      <WebViewVideoPlayer
+        url={resolved.url}
+        onMarcarConcluida={onMarcarConcluida}
+      />
+    )
+  }
+
+  return (
+    <NativeVideoPlayer
+      url={resolved.url}
+      onMarcarConcluida={onMarcarConcluida}
+    />
+  )
+}
+
+// Player nativo (expo-video) para Cloudflare HLS e MP4
+function NativeVideoPlayer({
+  url,
+  onMarcarConcluida,
+}: {
+  url: string
+  onMarcarConcluida: () => void
+}) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isPlaying, setIsPlaying] = useState(true)
 
-  // Ref para estabilizar callback e evitar re-subscrições desnecessárias
   const onMarcarConcluidaRef = useRef(onMarcarConcluida)
   onMarcarConcluidaRef.current = onMarcarConcluida
 
-  // ✅ NOVO: useVideoPlayer do expo-video
-  const player = useVideoPlayer(videoUrl, player => {
+  const player = useVideoPlayer(url, player => {
     player.loop = false
     player.play()
   })
 
-  // Marca como concluída quando o vídeo terminar
   React.useEffect(() => {
     if (!player) return
 
     const subscription = player.addListener('statusChange', () => {
       const status = player.status
 
-      // Sincroniza isPlaying com o estado real do player
       setIsPlaying(player.playing)
 
       if (status === 'idle' && player.currentTime === player.duration) {
-        // Vídeo terminou
         onMarcarConcluidaRef.current()
       }
       if (status === 'readyToPlay') {
@@ -55,7 +77,6 @@ export function PaginaVideo({
       }
     })
 
-    // Verifica status inicial
     if (player.status === 'readyToPlay') {
       setIsLoading(false)
     }
@@ -65,29 +86,8 @@ export function PaginaVideo({
     }
   }, [player])
 
-  // Se é URL do YouTube, usa WebView (fallback)
-  const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')
-
-  if (isYouTube) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.card}>
-          <View style={styles.youtubeContainer}>
-            <Text style={styles.youtubeText}>
-              Vídeos do YouTube não são suportados diretamente no app.
-            </Text>
-            <Text style={styles.youtubeSubtext}>
-              Abra no navegador: {videoUrl}
-            </Text>
-          </View>
-        </View>
-      </View>
-    )
-  }
-
   return (
     <View style={styles.container}>
-      {/* Card de vídeo */}
       <View style={styles.card}>
         <View style={styles.videoWrapper}>
           {isLoading && (
@@ -114,7 +114,6 @@ export function PaginaVideo({
           )}
         </View>
 
-        {/* Controles customizados (opcional) */}
         {!hasError && !isLoading && (
           <View style={styles.controls}>
             <TouchableOpacity
@@ -143,17 +142,65 @@ export function PaginaVideo({
         )}
       </View>
 
-      {/* Footer com instruções */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          ℹ️ O vídeo será marcado como concluído automaticamente ao terminar
+          O vídeo será marcado como concluído automaticamente ao terminar
         </Text>
       </View>
     </View>
   )
 }
 
-// Estilos permanecem iguais
+// Player WebView para YouTube com botão de marcar concluído
+function WebViewVideoPlayer({
+  url,
+  onMarcarConcluida,
+}: {
+  url: string
+  onMarcarConcluida: () => void
+}) {
+  const [loading, setLoading] = useState(true)
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.card}>
+        <View style={styles.videoWrapper}>
+          <WebView
+            source={{ uri: url }}
+            style={styles.video}
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled={true}
+            onLoadEnd={() => setLoading(false)}
+          />
+
+          {loading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#7C3AED" />
+              <Text style={styles.loadingText}>Carregando vídeo...</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <TouchableOpacity
+        onPress={onMarcarConcluida}
+        style={styles.marcarConcluidaButton}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+        <Text style={styles.marcarConcluidaText}>Marcar como concluído</Text>
+      </TouchableOpacity>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Assista ao vídeo e toque no botão acima para marcar como concluído
+        </Text>
+      </View>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -204,26 +251,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Inter-Regular',
   },
-  youtubeContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    padding: 20,
-    gap: 8,
-  },
-  youtubeText: {
-    fontSize: 14,
-    color: '#111827',
-    textAlign: 'center',
-    fontFamily: 'Inter-Medium',
-  },
-  youtubeSubtext: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontFamily: 'Inter-Regular',
-  },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -243,6 +270,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
     fontFamily: 'Inter-Medium',
+  },
+  marcarConcluidaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 14,
+    backgroundColor: '#7C3AED',
+    borderRadius: 10,
+  },
+  marcarConcluidaText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   footer: {
     marginTop: 16,

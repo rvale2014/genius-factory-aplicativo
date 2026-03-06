@@ -3,7 +3,14 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(xargs grep:*)",
+      "WebSearch",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:docs.expo.dev)",
+      "WebFetch(domain:meliorence.github.io)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "Bash(curl:*)"
     ]
   }
 }

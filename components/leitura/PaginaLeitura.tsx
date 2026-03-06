@@ -2,8 +2,12 @@
 
 import React, { useEffect, useMemo } from 'react'
 import { StyleSheet, useWindowDimensions, View } from 'react-native'
-import RenderHTML from 'react-native-render-html'
+import RenderHTML from '@/components/shared/RenderHTMLWithLatex'
+import type { CustomBlockRenderer } from 'react-native-render-html'
+import { HTMLElementModel, HTMLContentModel } from '@native-html/transient-render-engine'
 import { AudioPlayerMobile } from './AudioPlayerMobile'
+import { InlineVideoPlayer } from './InlineVideoPlayer'
+import { isCloudflareVideoId } from '@/src/lib/videoUtils'
 
 type Props = {
   htmlFragmento: string
@@ -12,6 +16,36 @@ type Props = {
   audioUrl?: string | null
   onMarcarConcluida: () => void
   onAudioEnded?: () => void
+}
+
+/**
+ * Pré-processa HTML para converter <div class="gf-inline-video"> em tag customizado
+ */
+function preprocessHtml(html: string): string {
+  return html.replace(
+    /<div[^>]*class="gf-inline-video"[^>]*data-video-id="([^"]*)"[^>]*>[\s\S]*?<\/div>/g,
+    '<gf-inline-video data-video-id="$1"></gf-inline-video>'
+  ).replace(
+    /<div[^>]*data-video-id="([^"]*)"[^>]*class="gf-inline-video"[^>]*>[\s\S]*?<\/div>/g,
+    '<gf-inline-video data-video-id="$1"></gf-inline-video>'
+  )
+}
+
+const customHTMLElementModels = {
+  'gf-inline-video': HTMLElementModel.fromCustomModel({
+    tagName: 'gf-inline-video',
+    contentModel: HTMLContentModel.block,
+  }),
+}
+
+const InlineVideoRenderer: CustomBlockRenderer = ({ tnode }) => {
+  const videoId = tnode.attributes?.['data-video-id']
+  if (!videoId || !isCloudflareVideoId(videoId)) return null
+  return <InlineVideoPlayer videoId={videoId} />
+}
+
+const renderers = {
+  'gf-inline-video': InlineVideoRenderer,
 }
 
 export function PaginaLeitura({
@@ -23,19 +57,19 @@ export function PaginaLeitura({
   onAudioEnded,
 }: Props) {
   const { width } = useWindowDimensions()
-  
+
   // Marca como concluída quando a página é visualizada
   useEffect(() => {
     onMarcarConcluida()
   }, [htmlFragmento, atividadeId, onMarcarConcluida])
-  
+
   const contentWidth = useMemo(() => {
     return Math.min(width, 600) - 32
   }, [width])
 
   const htmlSource = useMemo(() => ({
-    html: htmlFragmento?.trim() 
-      ? htmlFragmento 
+    html: htmlFragmento?.trim()
+      ? preprocessHtml(htmlFragmento)
       : '<p>Conteúdo indisponível.</p>',
   }), [htmlFragmento])
 
@@ -66,8 +100,8 @@ export function PaginaLeitura({
       {/* Player de áudio (se disponível) */}
       {audioUrl && (
         <View style={styles.audioContainer}>
-          <AudioPlayerMobile 
-            audioUrl={audioUrl} 
+          <AudioPlayerMobile
+            audioUrl={audioUrl}
             onEnded={onAudioEnded}
           />
         </View>
@@ -82,6 +116,8 @@ export function PaginaLeitura({
           defaultTextProps={defaultTextProps}
           tagsStyles={tagsStyles}
           systemFonts={systemFonts}
+          customHTMLElementModels={customHTMLElementModels}
+          renderers={renderers}
         />
       </View>
     </View>

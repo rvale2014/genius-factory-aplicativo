@@ -8,7 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import RenderHTML from "react-native-render-html";
+import RenderHTML from "@/components/shared/RenderHTMLWithLatex";
 
 import BlocoRapidoAluno from "./BlocoRapidoAluno";
 import ColorirFiguraAluno, { ConteudoColorir } from "./ColorirFiguraAluno";

@@ -2,13 +2,15 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+import { WebView } from 'react-native-webview';
+import { resolveVideoSource } from '@/src/lib/videoUtils';
 
 interface VideoPlayerProps {
   uri: string;
@@ -17,10 +19,30 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
+  const resolved = useMemo(() => resolveVideoSource(uri), [uri]);
+
+  if (resolved.type === 'webview') {
+    return <WebViewPlayer url={resolved.url} />;
+  }
+
+  return (
+    <NativeVideoPlayer uri={resolved.url} onEnded={onEnded} onError={onError} />
+  );
+}
+
+// Player nativo (expo-video) para Cloudflare HLS e MP4
+function NativeVideoPlayer({
+  uri,
+  onEnded,
+  onError,
+}: {
+  uri: string;
+  onEnded?: () => void;
+  onError?: (error: string) => void;
+}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs para estabilizar callbacks e evitar re-subscrições desnecessárias
   const onEndedRef = useRef(onEnded);
   const onErrorRef = useRef(onError);
   onEndedRef.current = onEnded;
@@ -51,13 +73,11 @@ export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
         onErrorRef.current?.(errorMsg);
       }
 
-      // Vídeo terminou
       if (status === 'idle' && player.currentTime === player.duration && player.currentTime > 0) {
         onEndedRef.current?.();
       }
     });
 
-    // Verifica status inicial
     if (player.status === 'readyToPlay') {
       setLoading(false);
     }
@@ -83,6 +103,31 @@ export function VideoPlayer({ uri, onEnded, onError }: VideoPlayerProps) {
         style={styles.video}
         nativeControls
         contentFit="contain"
+      />
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.loadingText}>Carregando vídeo...</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Player WebView para YouTube
+function WebViewPlayer({ url }: { url: string }) {
+  const [loading, setLoading] = useState(true);
+
+  return (
+    <View style={styles.container}>
+      <WebView
+        source={{ uri: url }}
+        style={styles.video}
+        allowsInlineMediaPlayback={true}
+        mediaPlaybackRequiresUserAction={false}
+        javaScriptEnabled={true}
+        onLoadEnd={() => setLoading(false)}
       />
 
       {loading && (
@@ -136,17 +181,3 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
   },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

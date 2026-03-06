@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import RenderHTML from 'react-native-render-html';
+import RenderHTML from '@/components/shared/RenderHTMLWithLatex';
 import { api } from '../../src/lib/api';
 
 type DuvidaItem = {

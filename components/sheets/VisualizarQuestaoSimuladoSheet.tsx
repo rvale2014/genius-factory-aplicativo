@@ -5,7 +5,7 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom
 import React, { useMemo, useState } from "react";
 import { Image } from 'expo-image';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
-import RenderHTML from "react-native-render-html";
+import RenderHTML from "@/components/shared/RenderHTMLWithLatex";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Importar calculadores de feedback
