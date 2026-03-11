@@ -43,6 +43,9 @@ async function updateAccessTokenInternal(newAccess: string) {
 
 // ---------- REQUEST: anexa Authorization ----------
 api.interceptors.request.use(async (config) => {
+  // Não sobrescreve se já foi passado manualmente (ex: login.tsx com token recém-obtido)
+  if (config.headers?.Authorization) return config;
+
   const raw = await SecureStore.getItemAsync(SECURE_KEY);
   if (raw) {
     const { accessToken } = JSON.parse(raw) as { accessToken?: string };
@@ -61,7 +64,7 @@ let refreshPromise: Promise<string> | null = null;
 function shouldSkipRefresh(config?: InternalAxiosRequestConfig) {
   // evita loop: não faz refresh para a própria rota de refresh/login/reset-password
   const url = config?.url || '';
-  return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/reset-password') || url.includes('/auth/verificar-pin-parental');
+  return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/reset-password');
 }
 
 api.interceptors.response.use(

@@ -61,7 +61,8 @@ export function normalizeAlternativas(
           typeof alt === "string"
             ? alt
             : alt.texto ?? alt.label ?? alt.descricao ?? null;
-        return typeof value === "string" ? sanitizeInlineHtml(value) : null;
+        // Não aplicar sanitizeInlineHtml aqui: o campo texto agora armazena HTML rico
+        return typeof value === "string" ? value : null;
       })
       .filter(
         (alt: string | null | undefined): alt is string =>

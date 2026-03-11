@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { Image } from 'expo-image';
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import RenderHTML from "@/components/shared/RenderHTMLWithLatex";
 
 export type SelecaoMultiplaAlternativa = {
   id: string;
@@ -33,6 +34,21 @@ export default function SelecaoMultiplaAluno({
     const itens = Array.isArray(corretas) ? corretas : [];
     return new Set(itens.map(String));
   }, [corretas]);
+
+  const { width } = useWindowDimensions();
+  const htmlContentWidth = useMemo(() => Math.min(width, 600) - 120, [width]);
+  const baseStyleHtml = useMemo(() => ({
+    fontSize: 15,
+    color: "#1F2937",
+    lineHeight: 20,
+    fontFamily: "Inter",
+    padding: 0,
+    margin: 0,
+  }), []);
+  const tagsStylesHtml = useMemo(() => ({
+    p: { margin: 0, padding: 0 },
+    body: { margin: 0, padding: 0 },
+  }), []);
 
   function toggle(id: string) {
     if (respondido) return;
@@ -149,7 +165,15 @@ export default function SelecaoMultiplaAluno({
               />
             ) : null}
 
-            <Text style={styles.texto}>{alt.texto}</Text>
+            <View style={styles.textoContainer}>
+              <RenderHTML
+                contentWidth={htmlContentWidth}
+                source={{ html: alt.texto || "" }}
+                baseStyle={baseStyleHtml}
+                tagsStyles={tagsStylesHtml}
+                defaultTextProps={{ selectable: false }}
+              />
+            </View>
 
             {/* Ícone grande de feedback no final */}
             {isFeedbackActive && isCorreta && checked && (
@@ -221,10 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#F3F4F6",
   },
-  texto: {
+  textoContainer: {
     flex: 1,
-    fontSize: 15,
-    color: "#1F2937",
-    lineHeight: 20,
   },
 });

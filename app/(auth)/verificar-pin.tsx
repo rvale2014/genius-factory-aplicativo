@@ -30,7 +30,7 @@ const PIN_LENGTH = 6;
 
 export default function VerificarPinScreen(): React.ReactElement {
   const router = useRouter();
-  const { pinIncorreto } = useLocalSearchParams<{ pinIncorreto?: string }>();
+  const { pinIncorreto, erroServidor } = useLocalSearchParams<{ pinIncorreto?: string; erroServidor?: string }>();
   const session = useAtomValue(sessionAtom);
   const setSession = useSetAtom(sessionAtom);
   const setPinTemporario = useSetAtom(pinTemporarioAtom);
@@ -41,7 +41,11 @@ export default function VerificarPinScreen(): React.ReactElement {
   const [digits, setDigits] = useState<string[]>(Array(PIN_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(
-    pinIncorreto ? 'O PIN informado anteriormente estava incorreto. Peça ao responsável para inserir o PIN correto.' : null,
+    pinIncorreto
+      ? 'O PIN informado anteriormente estava incorreto. Peça ao responsável para inserir o PIN correto.'
+      : erroServidor
+        ? 'Não foi possível verificar o PIN. Tente novamente.'
+        : null,
   );
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
@@ -97,7 +101,10 @@ export default function VerificarPinScreen(): React.ReactElement {
       try {
         setLoading(true);
         setErro(null);
-        await api.post('/mobile/v1/auth/verificar-pin-parental', { pin });
+        console.log('[VERIFICAR-PIN] Modo pós-login. Token da sessão:', session?.accessToken?.substring(0, 20) + '...');
+        console.log('[VERIFICAR-PIN] PIN digitado:', pin?.substring(0, 2) + '****');
+        const pinRes = await api.post('/mobile/v1/auth/verificar-pin-parental', { pin });
+        console.log('[VERIFICAR-PIN] Sucesso:', pinRes.status, pinRes.data);
 
         // Sucesso: atualiza sessão sem pendente
         const updatedSession = {
@@ -109,9 +116,16 @@ export default function VerificarPinScreen(): React.ReactElement {
         router.replace('/(app)/dashboard');
       } catch (e: any) {
         const status = e?.response?.status;
-        if (status === 401) {
+        console.log('[VERIFICAR-PIN] Erro:', status, e?.response?.data);
+        console.log('[VERIFICAR-PIN] Header enviado:', e?.config?.headers?.Authorization?.substring(0, 30));
+        if (status === 403) {
           setErro('PIN incorreto. Verifique e tente novamente.');
           clearFields();
+        } else if (status === 401) {
+          // Refresh falhou — sessão expirada, volta ao fluxo completo
+          console.log('[VERIFICAR-PIN] Sessão expirada, redirecionando para login');
+          setSession(null);
+          router.replace('/(auth)/verificar-pin');
         } else if (status === 429) {
           setErro('Muitas tentativas incorretas. Entre em contato com o suporte.');
         } else if (e?.code === 'ECONNABORTED' || e?.code === 'ERR_NETWORK') {

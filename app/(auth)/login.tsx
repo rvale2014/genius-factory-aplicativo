@@ -59,7 +59,7 @@ export default function LoginScreen(): React.ReactElement {
       if (pinParentalPendente && pinTemporario) {
         // Tenta verificar o PIN coletado antes do login
         try {
-          await api.post(
+          const pinRes = await api.post(
             '/mobile/v1/auth/verificar-pin-parental',
             { pin: pinTemporario },
             { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -70,11 +70,20 @@ export default function LoginScreen(): React.ReactElement {
           setPinTemporario(null);
           router.replace('/(app)/dashboard');
         } catch (pinErr: any) {
-          // PIN incorreto — salva com pendência e redireciona para tela de PIN
+          const pinStatus = pinErr?.response?.status;
+
+          // Salva sessão com pendência para tentar novamente na tela de PIN
           await saveSession({ accessToken, refreshToken, pinParentalPendente: true });
           setSession({ accessToken, refreshToken, pinParentalPendente: true });
           setPinTemporario(null);
-          router.replace('/(auth)/verificar-pin?pinIncorreto=1');
+
+          if (pinStatus === 403) {
+            // PIN incorreto
+            router.replace('/(auth)/verificar-pin?pinIncorreto=1');
+          } else {
+            // Erro de rede, timeout ou outro — não culpa o PIN
+            router.replace('/(auth)/verificar-pin?erroServidor=1');
+          }
         }
       } else if (pinParentalPendente) {
         // Sem PIN temporário — salva com pendência

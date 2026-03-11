@@ -10,7 +10,8 @@ import {
   corrigirSelecaoMultipla,
 } from "@/src/services/respostasService";
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import RenderHTML from "@/components/shared/RenderHTMLWithLatex";
 
 // Tipagem “enxuta” vinda do seu /mobile/v1/qbank/questoes
 export type QuestaoData = {
@@ -36,6 +37,7 @@ type Props = {
 };
 
 export default function QuestaoPlayer({ questao }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
@@ -240,7 +242,15 @@ export default function QuestaoPlayer({ questao }: Props) {
                   setRespSelecaoMultipla((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
                 }}
               >
-                <Text style={styles.optText}>{String(alt.texto ?? alt.id)}</Text>
+                <View style={{ flex: 1 }}>
+                  <RenderHTML
+                    contentWidth={screenWidth - 80}
+                    source={{ html: String(alt.texto ?? alt.id) }}
+                    baseStyle={{ color: "#111", fontSize: 14 }}
+                    tagsStyles={{ p: { margin: 0 }, body: { margin: 0 } }}
+                    defaultTextProps={{ selectable: false }}
+                  />
+                </View>
                 <Text style={{ opacity: 0.6 }}>{checked ? "✔" : ""}</Text>
               </TouchableOpacity>
             );
