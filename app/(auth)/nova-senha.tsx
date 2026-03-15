@@ -82,10 +82,12 @@ export default function NovaSenhaScreen() {
       setModalSucesso(true);
     } catch (e: any) {
       const status = e?.response?.status;
-      if (status === 400) {
-        setErro('Dados inválidos. Verifique sua senha.');
-      } else if (status === 401 || status === 403) {
-        setErro('Token inválido ou expirado. Solicite um novo link de redefinição.');
+      if (status === 410) {
+        setErro('O link expirou. Solicite um novo link de redefinição de senha.');
+      } else if (status === 404) {
+        setErro('Link inválido. Solicite um novo link de redefinição de senha.');
+      } else if (status === 400) {
+        setErro('Dados inválidos. A senha deve ter no mínimo 6 caracteres.');
       } else if (e?.code === 'ECONNABORTED' || e?.code === 'ERR_NETWORK') {
         setErro('Sem conexão com o servidor. Verifique sua internet.');
       } else {

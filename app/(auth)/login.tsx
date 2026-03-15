@@ -48,7 +48,7 @@ export default function LoginScreen(): React.ReactElement {
       }
 
       const res = await api.post('/mobile/v1/auth/login', { email, senha });
-      const { accessToken, refreshToken, pinParentalPendente } = res.data;
+      const { accessToken, refreshToken, pinParentalPendente, assinatura } = res.data;
 
       if (!accessToken || !refreshToken) {
         setErro('Resposta inválida do servidor.');
@@ -65,16 +65,16 @@ export default function LoginScreen(): React.ReactElement {
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           // PIN correto — salva sessão sem pendência
-          await saveSession({ accessToken, refreshToken });
-          setSession({ accessToken, refreshToken });
+          await saveSession({ accessToken, refreshToken, assinatura });
+          setSession({ accessToken, refreshToken, assinatura });
           setPinTemporario(null);
           router.replace('/(app)/dashboard');
         } catch (pinErr: any) {
           const pinStatus = pinErr?.response?.status;
 
           // Salva sessão com pendência para tentar novamente na tela de PIN
-          await saveSession({ accessToken, refreshToken, pinParentalPendente: true });
-          setSession({ accessToken, refreshToken, pinParentalPendente: true });
+          await saveSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
+          setSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
           setPinTemporario(null);
 
           if (pinStatus === 403) {
@@ -87,13 +87,13 @@ export default function LoginScreen(): React.ReactElement {
         }
       } else if (pinParentalPendente) {
         // Sem PIN temporário — salva com pendência
-        await saveSession({ accessToken, refreshToken, pinParentalPendente: true });
-        setSession({ accessToken, refreshToken, pinParentalPendente: true });
+        await saveSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
+        setSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
         router.replace('/(auth)/verificar-pin');
       } else {
         // Sem pendência de PIN
-        await saveSession({ accessToken, refreshToken });
-        setSession({ accessToken, refreshToken });
+        await saveSession({ accessToken, refreshToken, assinatura });
+        setSession({ accessToken, refreshToken, assinatura });
         setPinTemporario(null);
         router.replace('/(app)/dashboard');
       }

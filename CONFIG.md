@@ -34,4 +34,13 @@
 O EAS Update é basicamente uma forma de enviar atualizações "over-the-air" (OTA) para o seu app sem precisar fazer um novo build e passar pela revisão da Play Store.
 **COMANDO**: eas update --channel production -m "corrigido bug no login"
 
+8) **App Store Connect**
+O App Store Connect é a plataforma da Apple para gerenciamento de aplicativos iOS.
+8.1) **Gerar Build de produção para iOS**
+**COMANDO**: npx eas-cli build --profile production --platform ios
 
+8.2) **Submeter Build para a App Store Connect**
+**COMANDO**: npx eas-cli submit --platform ios --latest
+
+8.3) **Update para iOS**
+**COMANDO**: npx eas-cli update --branch production --message "Descrição da correção"

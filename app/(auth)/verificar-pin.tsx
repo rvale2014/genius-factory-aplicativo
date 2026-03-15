@@ -260,6 +260,18 @@ export default function VerificarPinScreen(): React.ReactElement {
             </Pressable>
 
             {!!erro && <Text style={styles.error}>{erro}</Text>}
+
+            <Pressable
+              onPress={() => router.push('/(auth)/recuperar-pin')}
+              style={({ pressed }) => [
+                { marginTop: 16, padding: 4 },
+                pressed && { opacity: 0.7 },
+              ]}
+              accessibilityRole="link"
+              accessibilityLabel="Esqueci o PIN parental"
+            >
+              <Text style={styles.forgotPin}>Esqueci o PIN parental</Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -342,5 +354,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     fontSize: 14,
+  },
+  forgotPin: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
 });

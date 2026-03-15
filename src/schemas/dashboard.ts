@@ -56,6 +56,7 @@ export const DashboardResponseSchema = z.object({
   ultimoCurso: DashboardUltimoCursoSchema.nullable(),
   ultimaTrilha: DashboardUltimaTrilhaSchema.nullable(),
   ultimoSimulado: DashboardSimuladoSchema.nullable(),
+  temAcesso: z.boolean().optional(),
 });
 
 export type DashboardResponse = z.infer<typeof DashboardResponseSchema>;

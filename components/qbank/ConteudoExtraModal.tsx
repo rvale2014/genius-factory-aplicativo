@@ -110,7 +110,9 @@ const ConteudoExtraModal = forwardRef<ConteudoExtraModalRef, Props>(
     const tagsStylesHTML = useMemo(() => ({
       p: styles.htmlParagraph,
       strong: styles.htmlStrong,
+      b: styles.htmlStrong,
       em: styles.htmlEm,
+      i: styles.htmlEm,
     }), []);
 
     const htmlSourceDica = useMemo(() => ({
@@ -508,7 +510,8 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
   },
   htmlStrong: {
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   htmlEm: {
     fontStyle: 'italic',

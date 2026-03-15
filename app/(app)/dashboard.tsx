@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { Award, BookOpen, Gauge, TrendingDown, TrendingUp, Trophy } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -20,6 +21,7 @@ import { DashboardSkeleton } from '@/components/skeleton/DashboardSkeleton';
 import type { DashboardResponse } from '../../src/schemas/dashboard';
 import { primeAlunoHeaderCache } from '../../src/services/alunoHeaderService';
 import { obterDashboard } from '../../src/services/dashboardService';
+import { saveSession, sessionAtom } from '../../src/state/session';
 
 const { width } = Dimensions.get('window');
 
@@ -42,10 +44,13 @@ function getInterFont(fontWeight?: string | number): string {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const session = useAtomValue(sessionAtom);
+  const setSession = useSetAtom(sessionAtom);
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [semAcesso, setSemAcesso] = useState(false);
   const lastLoadRef = useRef<number>(0);
   const initialLoadedRef = useRef(false);
 
@@ -71,6 +76,21 @@ export default function DashboardScreen() {
         avatarUrl: dados.aluno.avatarUrl,
         geniusCoins: dados.aluno.geniusCoins,
       });
+
+      // Revalida status de acesso da assinatura
+      if (dados.temAcesso !== undefined) {
+        setSemAcesso(!dados.temAcesso);
+        // Atualiza a sessão com o status mais recente
+        if (session?.accessToken) {
+          const assinaturaAtualizada = {
+            ...session.assinatura,
+            temAcesso: dados.temAcesso,
+          };
+          const sessaoAtualizada = { ...session, assinatura: assinaturaAtualizada };
+          await saveSession(sessaoAtualizada);
+          setSession(sessaoAtualizada);
+        }
+      }
     } catch (e: any) {
       // Em modo silencioso, não mostra erro para não interromper a experiência
       if (!silencioso) {
@@ -80,7 +100,7 @@ export default function DashboardScreen() {
       setLoading(false);
       initialLoadedRef.current = true;
     }
-  }, []);
+  }, [session, setSession]);
 
   // ✅ ESTRATÉGIA 1: useFocusEffect (para navegação entre telas)
   // Só faz reload silencioso após o carregamento inicial (evita race condition com useEffect)
@@ -112,6 +132,10 @@ export default function DashboardScreen() {
         avatarUrl: dados.aluno.avatarUrl,
         geniusCoins: dados.aluno.geniusCoins,
       });
+
+      if (dados.temAcesso !== undefined) {
+        setSemAcesso(!dados.temAcesso);
+      }
     } catch (e: any) {
       setErro('Não foi possível carregar os dados do dashboard. Tente novamente.');
     } finally {
@@ -224,6 +248,23 @@ export default function DashboardScreen() {
             <View style={styles.notificationDot} />
           </TouchableOpacity>
         </View>
+
+        {/* Banner de assinatura inativa */}
+        {semAcesso && (
+          <View style={styles.bannerSemAcesso}>
+            <View style={styles.bannerSemAcessoIcon}>
+              <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+            </View>
+            <View style={styles.bannerSemAcessoContent}>
+              <Text style={styles.bannerSemAcessoTitle}>Acesso limitado</Text>
+              <Text style={styles.bannerSemAcessoText}>
+                {session?.assinatura?.trialExpirada
+                  ? 'Seu período de teste expirou. Entre em contato com o responsável para renovar a assinatura.'
+                  : 'Sua assinatura não está ativa. Entre em contato com o responsável para ativar o acesso ao conteúdo.'}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Card Principal: Banner do Aluno + Desempenho Médio */}
         <View style={styles.mainCard}>
@@ -619,6 +660,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: getInterFont('600'),
+  },
+  bannerSemAcesso: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF3CD',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FFECB5',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  bannerSemAcessoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  bannerSemAcessoContent: {
+    flex: 1,
+  },
+  bannerSemAcessoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+    fontFamily: getInterFont('700'),
+  },
+  bannerSemAcessoText: {
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+    fontFamily: getInterFont('400'),
   },
   header: {
     flexDirection: 'row',

@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { buscarQuestoesLote, concluirBloco, obterBloco } from '../../src/services/blocoService'
 import { invalidarCacheCaminho } from '../../src/services/caminhoService'
+import { prefetchPaginas, prefetchPaginasEmBackground } from '../../src/lib/imagePrefetch'
 import { BarraNavegacaoPaginas } from './BarraNavegacaoPaginas'
 import { ModalConquistas } from './ModalConquistas'
 import { PaginaRenderer } from './PaginaRenderer'
@@ -68,6 +69,9 @@ export function BlocoContainer() {
   
   // Ref para rastrear se o carregamento inicial já foi feito
   const initialLoadedRef = useRef(false)
+
+  // Ref para cancelar o prefetch em background ao desmontar
+  const cancelarPrefetchRef = useRef<(() => void) | null>(null)
   
   async function restaurarPosicao(blocoId: string, totalPaginas: number, paginasInfo: PaginaInfo[], questoesMap: Record<string, any>) {
     try {
@@ -77,11 +81,15 @@ export function BlocoContainer() {
       
       // Se está em modo refazer, NÃO restaura nada - começa do zero
       if (emModoRefazer === 'true') {
-        // ✅ CRÍTICO: Remove a flag IMEDIATAMENTE após detectar
-        // Isso permite que navegações futuras restaurem estados salvos NESTA sessão
-        await AsyncStorage.removeItem(refazerKey);
-        
+        await AsyncStorage.multiRemove([
+          refazerKey,
+          `@geniusfactory:pos-bloco-${blocoId}`,
+          `@geniusfactory:done-bloco-${blocoId}`,
+          `@geniusfactory:erro-bloco-${blocoId}`,
+        ]);
+
         setPaginasConcluidas(Array.from({ length: totalPaginas }, () => false));
+        setPaginasComErro([]);
         setPosicaoRestaurada(0);
         return;
       }
@@ -235,6 +243,17 @@ export function BlocoContainer() {
 
       // Restaura posição do AsyncStorage (agora com verificações individuais)
       await restaurarPosicao(blocoId, paginasGeradas.length, paginasGeradas, questoesMapaFinal)
+
+      // Camada 1: Prefetch imediato das primeiras 3 páginas
+      prefetchPaginas(paginasGeradas.slice(0, 3), questoesMapaFinal)
+
+      // Camada 3: Prefetch escalonado em background de todas as demais
+      cancelarPrefetchRef.current?.()
+      cancelarPrefetchRef.current = prefetchPaginasEmBackground(
+        paginasGeradas,
+        questoesMapaFinal,
+        3,
+      )
     } catch (error: any) {
       if (!silencioso) {
         Alert.alert('Erro', error.message || 'Não foi possível carregar o bloco')
@@ -250,17 +269,34 @@ export function BlocoContainer() {
   // 1. Carregar dados do bloco (carregamento inicial)
   useEffect(() => {
     carregarDados(false)
-    initialLoadedRef.current = true
   }, [carregarDados])
 
   // Recarregar dados quando a tela ganha foco (silenciosamente)
+  // Na primeira execução (mount), apenas marca a flag sem recarregar
+  // pois o useEffect acima já fez o carregamento inicial
   useFocusEffect(
     useCallback(() => {
       if (initialLoadedRef.current) {
         carregarDados(true)
+      } else {
+        initialLoadedRef.current = true
       }
     }, [carregarDados])
   )
+
+  // Camada 2: Prefetch reativo — ao navegar, pré-carrega as próximas 2 páginas
+  useEffect(() => {
+    if (paginas.length === 0) return
+    const proximas = paginas.slice(paginaAtual + 1, paginaAtual + 3)
+    if (proximas.length > 0) prefetchPaginas(proximas, questoesMap)
+  }, [paginaAtual, paginas, questoesMap])
+
+  // Cleanup do prefetch em background ao desmontar
+  useEffect(() => {
+    return () => {
+      cancelarPrefetchRef.current?.()
+    }
+  }, [])
 
   // 3. Persistir posição no AsyncStorage
   useEffect(() => {

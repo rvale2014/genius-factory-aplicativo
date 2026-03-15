@@ -51,10 +51,10 @@ export default function RedefinirSenhaScreen() {
       );
     } catch (e: any) {
       const status = e?.response?.status;
-      if (status === 404) {
-        setErro('E-mail não encontrado. Verifique se o e-mail está correto.');
-      } else if (status === 400) {
+      if (status === 400) {
         setErro('Dados inválidos. Verifique o e-mail informado.');
+      } else if (status === 429) {
+        setErro('Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.');
       } else if (e?.code === 'ECONNABORTED' || e?.code === 'ERR_NETWORK') {
         setErro('Sem conexão com o servidor. Verifique sua internet.');
       } else {

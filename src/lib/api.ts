@@ -67,11 +67,30 @@ function shouldSkipRefresh(config?: InternalAxiosRequestConfig) {
   return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/reset-password');
 }
 
+// Evento customizado para notificar bloqueio de assinatura
+type AssinaturaBloqueadaListener = (motivoNegacao: string) => void;
+const assinaturaBloqueadaListeners: AssinaturaBloqueadaListener[] = [];
+
+export function onAssinaturaBloqueada(listener: AssinaturaBloqueadaListener) {
+  assinaturaBloqueadaListeners.push(listener);
+  return () => {
+    const idx = assinaturaBloqueadaListeners.indexOf(listener);
+    if (idx >= 0) assinaturaBloqueadaListeners.splice(idx, 1);
+  };
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError<any>) => {
     const status = error.response?.status;
     const originalConfig = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    // Intercepta 403 de assinatura bloqueada
+    if (status === 403 && error.response?.data?.erro === 'sem_assinatura') {
+      const motivo = error.response?.data?.motivoNegacao || 'SEM_ASSINATURA';
+      assinaturaBloqueadaListeners.forEach((fn) => fn(motivo));
+      return Promise.reject(error);
+    }
 
     if (status === 401 && !originalConfig?._retry && !shouldSkipRefresh(originalConfig)) {
       originalConfig._retry = true;

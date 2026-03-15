@@ -1,15 +1,78 @@
 // components/shared/RenderHTMLWithLatex.tsx
 // Wrapper drop-in para RenderHTML com suporte a fórmulas LaTeX via KaTeX
 
-import React, { useMemo } from "react";
-import RenderHTML from "react-native-render-html";
-import type { RenderHTMLProps } from "react-native-render-html";
+import React, { useCallback, useMemo, useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { Image as ExpoImage } from "expo-image";
+import RenderHTML, { useIMGElementProps } from "react-native-render-html";
+import type { InternalBlockRenderer, RenderHTMLProps } from "react-native-render-html";
 import { preprocessLatex } from "@/src/lib/katex/preprocessLatex";
 import {
   katexCustomHTMLElementModels,
   katexDomVisitors,
   katexRenderers,
 } from "@/src/lib/katex/katexRenderers";
+
+/**
+ * Custom img renderer que usa expo-image diretamente.
+ * Usa useIMGElementProps da biblioteca apenas para normalizar a URL,
+ * sem chamar useIMGElementState (que faria download duplo via RN Image.getSize).
+ */
+const ExpoIMGRenderer: InternalBlockRenderer = (props) => {
+  const imgProps = useIMGElementProps(props);
+  const { source, contentWidth } = imgProps;
+
+  const [dimensoes, setDimensoes] = useState<{ width: number; height: number } | null>(null);
+
+  const maxWidth = contentWidth ?? 500;
+
+  // Se o HTML especifica width/height, usa direto
+  const specWidth = imgProps.width ? Number(imgProps.width) : null;
+  const specHeight = imgProps.height ? Number(imgProps.height) : null;
+
+  let displayWidth = maxWidth;
+  let displayHeight = maxWidth * 0.6; // ratio padrão antes de conhecer o tamanho real
+
+  if (specWidth && specHeight) {
+    displayWidth = Math.min(specWidth, maxWidth);
+    displayHeight = displayWidth * (specHeight / specWidth);
+  } else if (dimensoes) {
+    displayWidth = Math.min(dimensoes.width, maxWidth);
+    displayHeight = displayWidth * (dimensoes.height / dimensoes.width);
+  }
+
+  const onLoad = useCallback((e: any) => {
+    if (e?.source?.width && e?.source?.height) {
+      setDimensoes({ width: e.source.width, height: e.source.height });
+    }
+  }, []);
+
+  if (!source?.uri) return null;
+
+  return (
+    <View style={[imgStyles.container, { width: displayWidth, height: displayHeight }]}>
+      <ExpoImage
+        source={{ uri: source.uri }}
+        style={{ width: displayWidth, height: displayHeight }}
+        contentFit="contain"
+        cachePolicy="disk"
+        transition={{ duration: 150 }}
+        onLoad={onLoad}
+      />
+    </View>
+  );
+};
+
+const imgStyles = StyleSheet.create({
+  container: {
+    alignSelf: "center",
+    marginVertical: 8,
+  },
+});
+
+const expoImgRenderers = {
+  img: ExpoIMGRenderer,
+};
 
 type Props = RenderHTMLProps;
 
@@ -33,9 +96,10 @@ export default function RenderHTMLWithLatex(props: Props) {
     [customHTMLElementModels],
   );
 
-  // Merge renderers
+  // Merge renderers (expo-image img + katex + renderers do caller)
   const mergedRenderers = useMemo(
     () => ({
+      ...expoImgRenderers,
       ...katexRenderers,
       ...renderers,
     }),

@@ -2,10 +2,20 @@
 import * as SecureStore from 'expo-secure-store';
 import { atom } from 'jotai';
 
+export type AssinaturaInfo = {
+  temAcesso: boolean;
+  tipo?: string | null;
+  plano?: string | null;
+  dataFim?: string | null;
+  trialExpirada?: boolean;
+  motivoNegacao?: string | null;
+};
+
 export type Session = {
   accessToken?: string;
   refreshToken?: string;
   pinParentalPendente?: boolean;
+  assinatura?: AssinaturaInfo;
 } | null;
 
 // PIN digitado entre telas (não persiste no SecureStore)

@@ -10,7 +10,14 @@
       "WebFetch(domain:docs.expo.dev)",
       "WebFetch(domain:meliorence.github.io)",
       "WebFetch(domain:cdn.jsdelivr.net)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:hailey.at)",
+      "WebFetch(domain:jdmunro.net)",
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:app.unpkg.com)"
     ]
   }
 }

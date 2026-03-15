@@ -1,6 +1,6 @@
 // components/blocos/leitura/PaginaLeitura.tsx
 
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import { StyleSheet, useWindowDimensions, View } from 'react-native'
 import RenderHTML from '@/components/shared/RenderHTMLWithLatex'
 import type { CustomBlockRenderer } from 'react-native-render-html'
@@ -58,10 +58,15 @@ export function PaginaLeitura({
 }: Props) {
   const { width } = useWindowDimensions()
 
-  // Marca como concluída quando a página é visualizada
+  // Ref estável para o callback — evita re-disparar o useEffect quando a
+  // referência do callback muda (inline function recriada a cada render do pai)
+  const onMarcarConcluidaRef = useRef(onMarcarConcluida)
+  onMarcarConcluidaRef.current = onMarcarConcluida
+
+  // Marca como concluída quando a página é visualizada (uma vez por página)
   useEffect(() => {
-    onMarcarConcluida()
-  }, [htmlFragmento, atividadeId, onMarcarConcluida])
+    onMarcarConcluidaRef.current()
+  }, [htmlFragmento, atividadeId])
 
   const contentWidth = useMemo(() => {
     return Math.min(width, 600) - 32
