@@ -8,7 +8,7 @@ export default ({ config }: { config: ExpoConfig }) => ({
   name: 'Genius Factory',
   slug: 'genius-factory-aplicativo',
   scheme: 'geniusfactory',
-  version: '1.0.3',
+  version: '1.0.4',
 
   splash: {
     image: './assets/images/splash.png',
