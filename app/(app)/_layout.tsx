@@ -99,6 +99,13 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="notificacoes"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
         name="cursos/[id]"
         options={{
           tabBarButton: () => null,

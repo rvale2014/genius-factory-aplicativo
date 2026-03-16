@@ -2,7 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image as ExpoImage } from 'expo-image';
 import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAtomValue } from 'jotai';
 import { useAlunoHeader } from '../src/hooks/useAlunoHeader';
+import { notificacoesNaoLidasAtom } from '../src/state/notificacoes';
 
 const diamondImage = require('../assets/images/diamante.webp');
 
@@ -13,6 +16,8 @@ type Props = {
 
 export function AlunoHeaderSummary({ style, onPressNotification }: Props) {
   const { data, loading } = useAlunoHeader();
+  const router = useRouter();
+  const naoLidas = useAtomValue(notificacoesNaoLidasAtom);
 
   const nome = data?.nome ?? 'Aluno';
   const pontos =
@@ -21,6 +26,8 @@ export function AlunoHeaderSummary({ style, onPressNotification }: Props) {
       : loading
       ? 'Carregando...'
       : '--';
+
+  const handlePressNotification = onPressNotification ?? (() => router.push('/notificacoes'));
 
   return (
     <View style={[styles.container, style]}>
@@ -46,11 +53,17 @@ export function AlunoHeaderSummary({ style, onPressNotification }: Props) {
       </View>
       <TouchableOpacity
         style={styles.notificationButton}
-        onPress={onPressNotification}
+        onPress={handlePressNotification}
         activeOpacity={0.7}
       >
         <Ionicons name="notifications-outline" size={22} color="#FF5FDB" />
-        <View style={styles.notificationDot} />
+        {naoLidas > 0 && (
+          <View style={styles.notificationBadge}>
+            <Text style={styles.notificationBadgeText}>
+              {naoLidas > 99 ? '99+' : naoLidas}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -123,14 +136,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  notificationDot: {
+  notificationBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#14b8a6',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FF5FDB',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
   },
 });
-

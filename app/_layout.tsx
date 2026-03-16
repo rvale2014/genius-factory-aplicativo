@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { loadSession, sessionAtom, sessionLoadedAtom } from '../src/state/session';
+import { NotificacoesProvider } from '../src/providers/NotificacoesProvider';
 
 // Previne que a splash screen desapareça automaticamente
 SplashScreen.preventAutoHideAsync();
@@ -98,6 +99,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <JotaiProvider>
         <Bootstrap onSessionLoaded={onSessionLoaded} />
+        <NotificacoesProvider />
         <SplashController fontsReady={fontsReady} sessionReady={sessionReady} />
         <GestureHandlerRootView style={{ flex: 1 }}>
           <Slot />

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CachedImage } from '../../components/CachedImage';
 import { GaugeChart } from '../../components/GaugeChart';
 import { DashboardSkeleton } from '@/components/skeleton/DashboardSkeleton';
+import { notificacoesNaoLidasAtom } from '../../src/state/notificacoes';
 import type { DashboardResponse } from '../../src/schemas/dashboard';
 import { primeAlunoHeaderCache } from '../../src/services/alunoHeaderService';
 import { obterDashboard } from '../../src/services/dashboardService';
@@ -46,6 +47,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const session = useAtomValue(sessionAtom);
   const setSession = useSetAtom(sessionAtom);
+  const naoLidas = useAtomValue(notificacoesNaoLidasAtom);
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -243,9 +245,15 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Dashboard</Text>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notificacoes')}>
             <Ionicons name="notifications-outline" size={24} color="#333" />
-            <View style={styles.notificationDot} />
+            {naoLidas > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {naoLidas > 99 ? '99+' : naoLidas}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -713,14 +721,25 @@ const styles = StyleSheet.create({
   notificationButton: {
     position: 'relative',
   },
-  notificationDot: {
+  notificationBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#14b8a6',
+    top: -4,
+    right: -4,
+    backgroundColor: '#FF5FDB',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
   },
   mainCard: {
     marginHorizontal: 20,

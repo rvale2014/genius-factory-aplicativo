@@ -21,6 +21,14 @@ export default ({ config }: { config: ExpoConfig }) => ({
   plugins: [
     'expo-splash-screen',
     [
+      'expo-notifications',
+      {
+        icon: './assets/images/icon.png',
+        color: '#FF5FDB',
+        defaultChannel: 'default',
+      },
+    ],
+    [
       'expo-video',
       {
         supportsBackgroundPlayback: false,
@@ -53,6 +61,7 @@ export default ({ config }: { config: ExpoConfig }) => ({
   android: {
     package: 'com.geniusfactory.app',
     versionCode: 6,
+    googleServicesFile: './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#FFFFFF',

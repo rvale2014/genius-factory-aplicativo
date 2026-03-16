@@ -9,6 +9,8 @@ O app tem ícones de sininho em todas as telas mas são inúteis. Precisamos imp
 **Stack:** App Expo/React Native → Backend Next.js 15 (App Router, routes em `app/api/mobile/v1/`) → PostgreSQL (Neon)
 **Formato:** Push notifications (celular bloqueado) + tela interna com histórico
 
+> **Nota:** O backend reutiliza o sistema de **Avisos** existente (`Aviso` + `AlunoAviso`) em vez de criar tabelas novas. O app mobile consome uma API normalizada e não precisa saber da estrutura interna do backend.
+
 ---
 
 ## Arquitetura Geral
@@ -17,18 +19,20 @@ O app tem ícones de sininho em todas as telas mas são inúteis. Precisamos imp
 App Expo                          Backend Next.js                    Serviços
 ────────                          ──────────────                    ────────
 1. Pede permissão push
-2. getExpoPushTokenAsync() →  3. POST /notificacoes/token      → salva no banco
+2. getExpoPushTokenAsync() →  3. POST /notificacoes/token      → upsert PushTokenAluno
+                                  (body: { token, plataforma })
 
-                              4. Admin cria notificação          → salva no banco
-                              5. Cron detecta inativos           → salva no banco
-                              6. Conquista desbloqueada          → salva no banco
+                              4. Admin cria Aviso (enviarPush)   → cria AlunoAviso + push
+                              5. Rotina dispara evento           → cria AlunoAviso + push
+                              6. Conquista desbloqueada           → via dispararRotinasPorEvento
 
-                              7. expo-server-sdk envia push      → Expo Push Service → FCM/APNs
+                              7. pushNotificationService          → Expo Push Service → FCM/APNs
+                                 (expo-server-sdk, chunking)
 
 8. Recebe push no device
 9. Tap → abre app/tela
-10. GET /notificacoes         ← lista notificações do aluno
-11. PATCH /notificacoes/:id   ← marca como lida
+10. GET /notificacoes          ← lista AlunoAviso+Aviso normalizado
+11. PATCH /notificacoes/:id    ← marca como lida (AlunoAviso.id)
 ```
 
 ---
@@ -37,9 +41,9 @@ App Expo                          Backend Next.js                    Serviços
 
 ### Etapa 1: Instalar dependências
 ```bash
-npx expo install expo-notifications expo-device expo-constants
+npx expo install expo-notifications expo-device
 ```
-**Obs:** `expo-constants` pode já estar instalado. Verificar package.json.
+**Obs:** `expo-constants` já está instalado (`~18.0.10`).
 
 ### Etapa 2: Configurar app.config.ts
 - Adicionar plugin `expo-notifications` com `defaultChannel` e `color`
@@ -52,9 +56,9 @@ npx expo install expo-notifications expo-device expo-constants
 **Novo arquivo:** `src/services/notificacoesService.ts`
 
 Funções:
-- `registrarTokenPush(expoPushToken: string)` → POST `/api/mobile/v1/notificacoes/token`
-- `listarNotificacoes(page, perPage)` → GET `/api/mobile/v1/notificacoes`
-- `marcarComoLida(notificacaoId)` → PATCH `/api/mobile/v1/notificacoes/:id`
+- `registrarTokenPush(token: string, plataforma: string)` → POST `/api/mobile/v1/notificacoes/token`
+- `listarNotificacoes(page, pageSize)` → GET `/api/mobile/v1/notificacoes`
+- `marcarComoLida(alunoAvisoId)` → PATCH `/api/mobile/v1/notificacoes/:id`
 - `marcarTodasComoLidas()` → PATCH `/api/mobile/v1/notificacoes/lidas`
 - `contarNaoLidas()` → GET `/api/mobile/v1/notificacoes/nao-lidas`
 
@@ -63,13 +67,23 @@ Funções:
 
 ```typescript
 const NotificacaoSchema = z.object({
-  id: z.string(),
-  titulo: z.string(),
-  corpo: z.string(),
-  tipo: z.enum(['manual', 'inatividade', 'conquista']),
-  lida: z.boolean(),
-  dados: z.record(z.any()).nullable(), // deep link data
-  criadaEm: z.string(),
+  id: z.string(),            // AlunoAviso.id (usado no PATCH para marcar lida)
+  titulo: z.string(),        // Aviso.titulo
+  corpo: z.string(),         // Aviso.conteudo (normalizado pelo backend)
+  tipo: z.enum(['manual', 'inatividade', 'conquista']),  // normalizado pelo backend
+  lida: z.boolean(),         // AlunoAviso.visualizado
+  dados: z.record(z.any()).nullable(), // deep link data (ex: { route: '/trilhas/abc' })
+  criadaEm: z.string(),      // Aviso.criadaEm
+})
+
+const NotificacoesResponseSchema = z.object({
+  notificacoes: z.array(NotificacaoSchema),
+  total: z.number(),
+  page: z.number(),
+})
+
+const NaoLidasResponseSchema = z.object({
+  count: z.number(),
 })
 ```
 
@@ -78,13 +92,15 @@ const NotificacaoSchema = z.object({
 
 Responsabilidades:
 - Pedir permissão de push (Android 13+ precisa de permissão explícita)
-- Obter Expo Push Token via `getExpoPushTokenAsync()`
+- Obter Expo Push Token via `getExpoPushTokenAsync({ projectId })`
 - Enviar token ao backend (a cada abertura do app, pois token pode mudar)
 - Configurar `setNotificationHandler` para comportamento em foreground (mostrar banner)
 - Listener `addNotificationResponseReceivedListener` para taps → navegar para tela relevante
 - Listener `addNotificationReceivedListener` para atualizar badge de não-lidas em foreground
 
-**Integrar em:** `app/_layout.tsx` (dentro do Jotai Provider, após sessão carregada)
+**Integrar em:** `app/_layout.tsx` (dentro do JotaiProvider)
+
+> **Importante:** O provider deve aguardar `sessionLoadedAtom === true` e verificar que existe `accessToken` antes de registrar o token de push. Usar um componente interno que consome esses atoms e só inicializa quando o aluno está autenticado.
 
 ### Etapa 6: Criar atom de contagem de não-lidas
 **Novo arquivo:** `src/state/notificacoes.ts`
@@ -96,21 +112,37 @@ export const notificacoesNaoLidasAtom = atom(0)
 ### Etapa 7: Criar tela de notificações
 **Novo arquivo:** `app/(app)/notificacoes.tsx`
 
-- Lista de notificações com FlatList + paginação infinita
+- Lista de notificações com FlatList + paginação infinita (`pageSize=20`)
 - Pull-to-refresh
 - Cada item: ícone por tipo, título, corpo (truncado), tempo relativo ("há 2 horas")
-- Tap marca como lida + navega para destino (se aplicável)
+- Tap marca como lida + navega para destino (se `dados.route` existir, usa `router.push(dados.route)`)
 - Botão "Marcar todas como lidas"
 
-### Etapa 8: Conectar o sininho
-**Arquivos existentes:**
-- `app/(app)/dashboard.tsx` — sininho no header
-- `components/AlunoHeaderSummary.tsx` — sininho no header
+> **Importante:** Registrar a tela em `app/(app)/_layout.tsx` como hidden tab:
+> ```tsx
+> <Tabs.Screen
+>   name="notificacoes"
+>   options={{
+>     tabBarButton: () => null,
+>     tabBarItemStyle: { display: 'none' },
+>   }}
+> />
+> ```
 
-Mudanças:
-- Tap no sininho → `router.push('/notificacoes')`
-- Badge (bolinha) mostra contagem de não-lidas do atom
-- Esconder bolinha quando `naoLidas === 0`
+### Etapa 8: Conectar os sininhos
+
+Existem **dois sininhos independentes** que precisam ser atualizados:
+
+**1. `app/(app)/dashboard.tsx`** — sininho inline no header (linha ~246)
+- O `dashboard.tsx` tem seu próprio sininho, **não** usa `AlunoHeaderSummary`
+- Atualmente sem `onPress` — adicionar `onPress={() => router.push('/notificacoes')}`
+- Substituir `notificationDot` estático por badge dinâmico do atom `notificacoesNaoLidasAtom`
+- Esconder badge quando `naoLidas === 0`
+
+**2. `components/AlunoHeaderSummary.tsx`** — sininho reutilizável
+- Já tem prop `onPressNotification` — passar `router.push('/notificacoes')` de quem usa
+- Substituir `notificationDot` estático (bolinha teal) por badge dinâmico do atom
+- Esconder badge quando `naoLidas === 0`
 
 ### Etapa 9: Build nativo necessário
 ```bash
@@ -120,50 +152,58 @@ npx eas-cli build --profile development --platform android
 
 ---
 
-## BACKEND (repositório separado — prompt abaixo)
+## BACKEND (repositório Genius Factory Web)
 
-### Tabelas no PostgreSQL (Neon)
+> O backend reutiliza o sistema de Avisos existente. Veja o planejamento completo no repositório web.
 
-**`push_tokens`**
+### Modelo de Dados (extensões ao Prisma existente)
+
+**Novo modelo: `PushTokenAluno`**
 | Coluna | Tipo | Descrição |
 |--------|------|-----------|
-| id | uuid PK | |
-| aluno_id | uuid FK | Referência ao aluno |
-| token | text UNIQUE | Expo Push Token |
-| platform | text | 'android' ou 'ios' |
-| created_at | timestamp | |
-| updated_at | timestamp | |
+| id | cuid PK | |
+| alunoId | string FK | Referência ao aluno |
+| token | string UNIQUE | Expo Push Token |
+| plataforma | string | 'android' ou 'ios' |
+| criadoEm | DateTime | |
+| atualizadoEm | DateTime | @updatedAt |
 
-**`notificacoes`**
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | |
-| titulo | text | Título da notificação |
-| corpo | text | Corpo/mensagem |
-| tipo | text | 'manual', 'inatividade', 'conquista' |
-| dados | jsonb | Dados para deep linking (ex: { route: '/trilhas/123' }) |
-| criada_em | timestamp | |
+**Campos novos no `Aviso`:**
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| dados | Json? | Dados para deep linking (ex: `{ route: '/trilhas/abc' }`) |
+| enviarPush | Boolean | Default false. Se true, envia push ao criar |
 
-**`notificacoes_alunos`** (relação N:N — quem recebeu o quê)
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | |
-| notificacao_id | uuid FK | |
-| aluno_id | uuid FK | |
-| lida | boolean | Default false |
-| lida_em | timestamp | Nullable |
-| push_enviado | boolean | Default false |
-| created_at | timestamp | |
+**Campos novos no `AlunoAviso`:**
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| pushEnviado | Boolean | Default false |
+| lidoEm | DateTime? | Data exata da leitura |
 
-### Endpoints da API Mobile
+### Contrato da API Mobile
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/api/mobile/v1/notificacoes/token` | Registra/atualiza push token |
-| GET | `/api/mobile/v1/notificacoes` | Lista notificações do aluno (paginada) |
-| PATCH | `/api/mobile/v1/notificacoes/:id` | Marca uma como lida |
-| PATCH | `/api/mobile/v1/notificacoes/lidas` | Marca todas como lidas |
-| GET | `/api/mobile/v1/notificacoes/nao-lidas` | Contagem de não-lidas |
+| Método | Rota | Request | Response |
+|--------|------|---------|----------|
+| POST | `/notificacoes/token` | `{ token, plataforma }` | `{ ok: true }` |
+| GET | `/notificacoes?page=1&pageSize=20` | — | `{ notificacoes: [...], total, page }` |
+| PATCH | `/notificacoes/:id` | — | `{ ok: true }` |
+| PATCH | `/notificacoes/lidas` | — | `{ ok: true }` |
+| GET | `/notificacoes/nao-lidas` | — | `{ count: number }` |
+
+**Formato de cada notificação no array:**
+```json
+{
+  "id": "<AlunoAviso.id>",
+  "titulo": "<Aviso.titulo>",
+  "corpo": "<Aviso.conteudo>",
+  "tipo": "manual | inatividade | conquista",
+  "lida": false,
+  "dados": { "route": "/trilhas/abc" },
+  "criadaEm": "2026-03-15T22:00:00Z"
+}
+```
+
+> **Normalização de `tipo`:** O backend transforma a combinação `Aviso.tipo` + `Rotina.eventoEspecifico` em um valor simples: `'manual'`, `'inatividade'` ou `'conquista'`.
 
 ### Serviço de envio de push
 - Usar `expo-server-sdk` (npm) para enviar via Expo Push Service
@@ -171,14 +211,36 @@ npx eas-cli build --profile development --platform android
 - Tratar erro `DeviceNotRegistered` removendo tokens inválidos do banco
 - Verificar receipts após ~15 minutos
 
-### Cron para inatividade (estilo Duolingo)
-- Rodar diariamente (cron job ou Vercel Cron)
-- Query: alunos cuja última resolução de questão foi há X dias
-- Criar notificação tipo `'inatividade'` + enviar push
-- Mensagens variadas: "Faz X dias que você não estuda! Volte e mantenha seu streak!"
+### Integração com Avisos existentes
+- **Criação manual:** POST `/api/avisos` → se `enviarPush === true`, chama `enviarPushParaAlunos`
+- **Rotinas automáticas:** `dispararRotinasPorEvento` → se rotina tem `enviarPush`, envia push
+- **Conquistas:** via `dispararRotinasPorEvento('NOVA_CONQUISTA')` (já existente)
 
-### Notificação de conquistas
-- No endpoint que desbloqueia conquistas (provavelmente `concluirBloco` ou similar), após criar a conquista, criar notificação tipo `'conquista'` + enviar push
+### Cron de inatividade (estilo Duolingo)
+- Rodar diariamente (Vercel Cron, 14h UTC)
+- Query: alunos cuja última `RespostaAlunoQbank.respondidoEm` foi há X dias
+- Criar `AlunoAviso` + enviar push
+- Mensagens variadas para não repetir
+- NÃO enviar duplicata se o aluno já foi notificado por inatividade hoje
+
+---
+
+## Deep Linking — Rotas do App Mobile
+
+O campo `dados.route` deve usar rotas do **Expo Router** (não do Next.js):
+
+| Destino | Rota |
+|---------|------|
+| Dashboard | `/dashboard` |
+| Questões | `/questoes` |
+| Trilhas | `/trilhas` |
+| Trilha+Caminho | `/trilhas/{id}/caminhos/{caminhoId}` |
+| Curso | `/cursos/{id}` |
+| Simulado | `/simulados/{id}/resolver` |
+| Conquistas | `/conquistas` |
+| Ranking | `/ranking` |
+
+O `NotificacoesProvider` recebe o tap na notificação e faz `router.push(dados.route)`.
 
 ---
 
@@ -192,9 +254,10 @@ npx eas-cli build --profile development --platform android
 | `src/providers/NotificacoesProvider.tsx` | Criar |
 | `src/state/notificacoes.ts` | Criar |
 | `app/_layout.tsx` | Modificar — adicionar NotificacoesProvider |
+| `app/(app)/_layout.tsx` | Modificar — registrar tela notificacoes (hidden tab) |
 | `app/(app)/notificacoes.tsx` | Criar — tela de lista |
-| `app/(app)/dashboard.tsx` | Modificar — sininho funcional |
-| `components/AlunoHeaderSummary.tsx` | Modificar — sininho funcional |
+| `app/(app)/dashboard.tsx` | Modificar — sininho funcional com badge dinâmico |
+| `components/AlunoHeaderSummary.tsx` | Modificar — badge dinâmico pelo atom |
 | `google-services.json` | Adicionar (do Firebase Console) |
 
 ---
@@ -203,60 +266,101 @@ npx eas-cli build --profile development --platform android
 1. Instalar o novo build de desenvolvimento no dispositivo
 2. Abrir o app → deve pedir permissão de notificação (Android 13+)
 3. Verificar no backend que o push token foi salvo
-4. Enviar notificação manual pelo admin → deve aparecer no celular
+4. Enviar notificação manual pelo admin (com `enviarPush` ativado) → deve aparecer no celular
 5. Abrir o app → sininho mostra badge com contagem
 6. Tap no sininho → abre tela de notificações com a mensagem
 7. Marcar como lida → badge atualiza
-8. Testar deep linking: notificação com dados de rota → tap abre tela correta
+8. Testar deep linking: notificação com `dados.route` → tap abre tela correta
 
 ---
 
-## Prompt para o Backend + Frontend Admin (outra instância do Claude Code)
+## Prompt para o Backend (repositório Genius Factory Web)
 
-O prompt abaixo deve ser copiado e colado em outra instância do Claude Code rodando no repositório do backend/web.
+O prompt abaixo deve ser copiado e colado em outra instância rodando no repositório do backend/web.
 
 ```
-Estamos implementando um sistema completo de notificações push para o aplicativo mobile da Genius Factory (Expo/React Native). O app mobile já terá a parte do cliente implementada. Agora precisamos de DOIS blocos de trabalho neste repositório:
+Estamos implementando um sistema de notificações push para o app mobile da Genius Factory (Expo/React Native). A estratégia é REUTILIZAR o sistema de Avisos existente (Aviso + AlunoAviso + Rotinas), adicionando suporte a push notifications.
 
-1. **Backend (API)** — endpoints para o app mobile consumir + serviço de envio de push + cron de inatividade
-2. **Frontend administrativo** — tela no painel admin para criar e gerenciar notificações manuais
+O projeto é Next.js 15 com App Router. As rotas da API mobile ficam em `app/api/mobile/v1/` como Route Handlers. O banco é PostgreSQL (Neon) com Prisma. A autenticação mobile usa Bearer token JWT via `getAlunoIdFromReq`. O painel admin usa autenticação por cookies/session.
 
-O projeto é Next.js 15 com App Router. As rotas da API mobile ficam em `app/api/mobile/v1/` como Route Handlers (arquivos `route.ts` que exportam GET, POST, etc.). O banco é PostgreSQL (Neon). A autenticação mobile usa Bearer token JWT. O painel admin usa autenticação por cookies/session.
-
-Quero que você analise os padrões existentes do projeto (autenticação, validação, estrutura de Route Handlers, componentes do admin, etc.) e depois faça um PLANEJAMENTO completo. NÃO implemente ainda — apenas planeje.
+Quero que você analise os padrões existentes do projeto e faça um PLANEJAMENTO completo. NÃO implemente ainda — apenas planeje.
 
 ---
 
-### PARTE 1: BANCO DE DADOS
+### O QUE JÁ FOI IMPLEMENTADO NO APP MOBILE
 
-Tabelas necessárias:
+O frontend mobile (repositório separado, Expo SDK 54) já está 100% implementado e aguarda o backend. Segue o resumo do que foi feito:
 
-**`push_tokens`** — tokens de push dos dispositivos
-- id uuid PK
-- aluno_id uuid FK → referência ao aluno
-- token text UNIQUE — Expo Push Token (formato: ExponentPushToken[xxx])
-- platform text — 'android' ou 'ios'
-- created_at timestamp
-- updated_at timestamp
+**Arquivos criados:**
+- `src/schemas/notificacoes.ts` — 3 schemas Zod que validam as respostas da API:
+  - `NotificacaoSchema` (id, titulo, corpo, tipo, lida, dados, criadaEm)
+  - `NotificacoesResponseSchema` ({ notificacoes[], total, page })
+  - `NaoLidasResponseSchema` ({ count })
+- `src/state/notificacoes.ts` — Atom Jotai `notificacoesNaoLidasAtom` (número de não-lidas, usado como badge nos sininhos)
+- `src/services/notificacoesService.ts` — 5 funções de API que consomem os endpoints abaixo:
+  - `registrarTokenPush(token, plataforma)` → POST `/mobile/v1/notificacoes/token`
+  - `listarNotificacoes(page, pageSize)` → GET `/mobile/v1/notificacoes`
+  - `marcarComoLida(id)` → PATCH `/mobile/v1/notificacoes/${id}`
+  - `marcarTodasComoLidas()` → PATCH `/mobile/v1/notificacoes/lidas`
+  - `contarNaoLidas()` → GET `/mobile/v1/notificacoes/nao-lidas`
+- `src/providers/NotificacoesProvider.tsx` — Provider que:
+  - Aguarda sessão autenticada (sessionAtom + sessionLoadedAtom) antes de inicializar
+  - Pede permissão de push (Android 13+)
+  - Obtém Expo Push Token via `getExpoPushTokenAsync({ projectId })`
+  - Envia token ao backend a cada abertura do app
+  - Configura `setNotificationHandler` para mostrar banner em foreground
+  - Listener de tap: extrai `dados.route` e faz `router.push(route)` (deep linking)
+  - Listener de recebimento: recarrega contagem de não-lidas via API
+- `app/(app)/notificacoes.tsx` — Tela de notificações com:
+  - FlatList com paginação infinita (pageSize=20)
+  - Pull-to-refresh
+  - Ícone diferente por tipo (megafone=manual, relógio=inatividade, troféu=conquista)
+  - Tempo relativo ("há 2h", "há 3d")
+  - Tap marca como lida (atualização otimista) + navega para `dados.route`
+  - Botão "Marcar todas como lidas"
+  - Empty state quando não há notificações
 
-**`notificacoes`** — cada notificação criada (uma entrada por notificação, independente de quantos alunos recebem)
-- id uuid PK
-- titulo text
-- corpo text
-- tipo text CHECK ('manual', 'inatividade', 'conquista')
-- dados jsonb nullable — dados para deep linking no app (ex: { route: '/trilhas/123' })
-- criada_em timestamp
+**Arquivos modificados:**
+- `app.config.ts` — Plugin expo-notifications + android.googleServicesFile
+- `app/_layout.tsx` — `<NotificacoesProvider />` adicionado dentro do JotaiProvider
+- `app/(app)/_layout.tsx` — Tela `notificacoes` registrada como hidden tab
+- `app/(app)/dashboard.tsx` — Sininho com `onPress` → `/notificacoes` + badge numérico dinâmico
+- `components/AlunoHeaderSummary.tsx` — Badge dinâmico interno (as telas trilhas, cursos e questões ganharam badge automaticamente sem precisar ser alteradas)
 
-**`notificacoes_alunos`** — relação N:N: quem recebeu qual notificação
-- id uuid PK
-- notificacao_id uuid FK
-- aluno_id uuid FK
-- lida boolean default false
-- lida_em timestamp nullable
-- push_enviado boolean default false
-- created_at timestamp
+**Firebase:**
+- Projeto Firebase "Genius Factory" (Plano Blaze) com app Android registrado
+- `google-services.json` na raiz do projeto com package_name: `com.geniusfactory.app`
+- Build de desenvolvimento com os módulos nativos em andamento
 
-Índices: notificacoes_alunos(aluno_id, lida), push_tokens(aluno_id)
+**O que o app espera do backend — CONTRATO IMUTÁVEL:**
+
+O app valida todas as respostas com Zod. Se o backend retornar campos com nomes diferentes ou formatos diferentes do especificado abaixo, o app vai dar erro de parsing. Os nomes dos campos e seus tipos são IMUTÁVEIS.
+
+---
+
+### PARTE 1: BANCO DE DADOS (Prisma)
+
+Extensões ao schema existente:
+
+**Novo modelo `PushTokenAluno`:**
+- id cuid PK
+- alunoId string FK → Aluno (onDelete: Cascade)
+- token string @unique — Expo Push Token (formato: ExponentPushToken[xxx])
+- plataforma string — 'android' ou 'ios'
+- criadoEm DateTime @default(now())
+- atualizadoEm DateTime @updatedAt
+- @@index([alunoId])
+
+**Campos novos no `Aviso`:**
+- dados Json? — dados para deep linking no app (ex: { route: '/trilhas/abc' })
+- enviarPush Boolean @default(false) — se deve enviar push notification
+
+**Campos novos no `AlunoAviso`:**
+- pushEnviado Boolean @default(false)
+- lidoEm DateTime? — data exata da leitura
+
+**Relação no `Aluno`:**
+- pushTokens PushTokenAluno[]
 
 ---
 
@@ -266,86 +370,137 @@ Instalar `expo-server-sdk` (npm install expo-server-sdk).
 
 Criar serviço `lib/pushNotificationService.ts`:
 - Função `enviarPushParaAlunos(alunoIds: string[], titulo: string, corpo: string, dados?: object)`
-- Busca tokens dos alunos no banco (tabela push_tokens)
+- Busca tokens dos alunos no banco (tabela PushTokenAluno)
 - Usa expo-server-sdk para enviar via Expo Push Service (chunking automático, max 100/request)
 - Trata erro `DeviceNotRegistered` removendo tokens inválidos do banco
 - Verifica receipts após envio (pode ser assíncrono)
-- Marca `push_enviado = true` em notificacoes_alunos após envio bem-sucedido
+- Marca `pushEnviado = true` em AlunoAviso após envio bem-sucedido
+
+Formato do push que o app espera receber (expo-server-sdk `ExpoPushMessage`):
+```json
+{
+  "to": "ExponentPushToken[xxx]",
+  "title": "Título da notificação",
+  "body": "Corpo da notificação",
+  "data": { "route": "/conquistas" }
+}
+```
+O campo `data.route` é usado pelo app para deep linking (tap na notificação → navega para a tela).
 
 ---
 
 ### PARTE 3: ENDPOINTS DA API MOBILE
 
-Route Handlers para o app mobile consumir:
+Route Handlers para o app mobile consumir. Todos em `app/api/mobile/v1/notificacoes/`.
 
-1. **`app/api/mobile/v1/notificacoes/token/route.ts`**
-   - POST: recebe `{ token, platform }`, faz upsert do push_token vinculado ao aluno autenticado (JWT)
+**Contrato da API (o app mobile JÁ ESTÁ implementado consumindo exatamente este formato, não altere nomes de campos):**
 
-2. **`app/api/mobile/v1/notificacoes/route.ts`**
-   - GET: lista notificações do aluno autenticado (paginada com `page` e `perPage`, ordenada por criada_em DESC)
-   - Retorna: `{ notificacoes: [{ id, titulo, corpo, tipo, lida, dados, criadaEm }], total, page }`
+1. **POST `/notificacoes/token`**
+   - Body: `{ token: string, plataforma: "android" | "ios" }`
+   - Faz upsert de PushTokenAluno vinculado ao aluno autenticado
+   - Se o token já existe para outro aluno, atualiza o alunoId
+   - Response: `{ ok: true }`
 
-3. **`app/api/mobile/v1/notificacoes/[id]/route.ts`**
-   - PATCH: marca notificação como lida (lida=true, lida_em=now) para o aluno autenticado
+2. **GET `/notificacoes?page=1&pageSize=20`**
+   - Lista AlunoAviso do aluno autenticado com join no Aviso
+   - Ordenada por criadaEm DESC
+   - **Normaliza os campos para o contrato do app (ATENÇÃO: o app valida com Zod, use exatamente estes nomes):**
+     - `id` → `AlunoAviso.id` (NÃO Aviso.id — este é o ID usado no PATCH para marcar lida)
+     - `titulo` → `Aviso.titulo`
+     - `corpo` → `Aviso.conteudo` (campo renomeado de "conteudo" para "corpo")
+     - `tipo` → normaliza Aviso.tipo/Rotina.eventoEspecifico em: `'manual'`, `'inatividade'` ou `'conquista'`
+     - `lida` → `AlunoAviso.visualizado`
+     - `dados` → `Aviso.dados` (Json nullable, ex: { route: '/trilhas/abc' })
+     - `criadaEm` → `Aviso.criadaEm` (ISO string)
+   - Response: `{ notificacoes: [...], total: number, page: number }`
 
-4. **`app/api/mobile/v1/notificacoes/lidas/route.ts`**
-   - PATCH: marca TODAS as notificações como lidas para o aluno autenticado
+3. **PATCH `/notificacoes/[id]`**
+   - O `id` é `AlunoAviso.id`
+   - Marca como lida (visualizado: true, lidoEm: new Date())
+   - Verifica que o AlunoAviso pertence ao aluno autenticado
+   - Response: `{ ok: true }`
 
-5. **`app/api/mobile/v1/notificacoes/nao-lidas/route.ts`**
-   - GET: retorna `{ count: number }` de notificações não lidas do aluno autenticado
+4. **PATCH `/notificacoes/lidas`**
+   - Marca TODAS as notificações como lidas para o aluno autenticado
+   - Response: `{ ok: true }`
+
+5. **GET `/notificacoes/nao-lidas`**
+   - Response: `{ count: number }`
 
 ---
 
-### PARTE 4: NOTIFICAÇÕES AUTOMÁTICAS
+### PARTE 4: INTEGRAÇÃO COM AVISOS EXISTENTES
+
+**Criação manual (POST /api/avisos):**
+- Após criar os AlunoAviso, se `aviso.enviarPush === true`:
+  - Coletar os alunoIds que receberam o aviso
+  - Chamar `enviarPushParaAlunos(alunoIds, aviso.titulo, aviso.conteudo, aviso.dados)`
+
+**Rotinas automáticas (dispararRotinasPorEvento):**
+- Após criar AlunoAviso para rotinas com evento, se a rotina tem `enviarPush === true`:
+  - Chamar `enviarPushParaAlunos([alunoId], rotina.titulo, rotina.conteudo, rotina.dados)`
 
 **Conquistas:**
-- No endpoint/função que desbloqueia conquistas (quando `concluirBloco` retorna `novasConquistas`), após criar a conquista, criar entrada em `notificacoes` + `notificacoes_alunos` e chamar `enviarPushParaAlunos` com tipo 'conquista'
-- Título: nome da conquista. Corpo: "Parabéns! Você desbloqueou a conquista {nome}!"
+- Integração automática via `dispararRotinasPorEvento('NOVA_CONQUISTA')` (já existente)
+- Admin precisa cadastrar rotina do tipo NOVA_CONQUISTA com `enviarPush = true`
+- Para push garantido sem rotina: adicionar função `enviarPushConquista(alunoId, conquistaNome)` que cria Aviso ad-hoc e envia push
 
-**Inatividade (estilo Duolingo):**
-- Criar endpoint de cron: `app/api/cron/notificacoes-inatividade/route.ts` (configurar com Vercel Cron para rodar 1x/dia)
-- Query: alunos cuja última resposta de questão foi há X dias (configurável, sugestão: 3 dias)
-- Para cada aluno inativo: criar notificação tipo 'inatividade' + enviar push
-- Mensagens variadas para não ficar repetitivo, ex:
+---
+
+### PARTE 5: CRON DE INATIVIDADE
+
+Criar endpoint: `app/api/cron/notificacoes-inatividade/route.ts`
+- Protegido por `CRON_SECRET` (Bearer token)
+- Query: alunos cuja última RespostaAlunoQbank.respondidoEm foi há X dias (sugestão: 3)
+- Para cada aluno inativo: verificar se já foi notificado por inatividade hoje (evitar duplicata)
+- Criar Aviso tipo rotina com eventoEspecifico INATIVIDADE + AlunoAviso + enviar push
+- Mensagens variadas:
   - "Faz {X} dias que você não resolve questões! Volte e continue aprendendo!"
   - "Sentimos sua falta! Que tal resolver algumas questões hoje?"
   - "Seu cérebro precisa de exercício! Volte e mantenha seu progresso!"
-- NÃO enviar duplicata se o aluno já foi notificado por inatividade hoje
+
+Configurar em vercel.json:
+```json
+{ "path": "/api/cron/notificacoes-inatividade", "schedule": "0 14 * * *" }
+```
 
 ---
 
-### PARTE 5: FRONTEND ADMINISTRATIVO (Painel Admin)
+### PARTE 6: FRONTEND ADMINISTRATIVO (Painel Admin)
 
-Criar uma tela no painel admin para gerenciar notificações. Preciso de:
+Adaptar a tela de Avisos existente (`app/admin/avisos/`):
 
-1. **Página de listagem de notificações enviadas:**
-   - Tabela com: título, tipo, data de criação, quantidade de destinatários, % de lidas
-   - Filtros por tipo (manual, inatividade, conquista)
-   - Ordenação por data (mais recentes primeiro)
+1. **ModalCriarAviso — Aviso manual:**
+   - Toggle "Enviar push notification" (Switch) → campo `enviarPush`
+   - Campo "Dados de deep link" (opcional) → dropdown com rotas do app mobile:
+     - `/dashboard`, `/questoes`, `/trilhas`, `/cursos`, `/conquistas`, `/ranking`
+   - Preview da notificação push (mini card com título + corpo truncado)
+   - Confirmação antes de enviar: "Enviar push para X alunos? Esta ação não pode ser desfeita."
 
-2. **Página/modal de criar notificação manual:**
-   - Formulário com campos:
-     - Título (obrigatório, max 100 caracteres)
-     - Corpo da mensagem (obrigatório, max 500 caracteres)
-     - Dados de deep link (opcional) — campo JSON ou dropdown com rotas comuns do app
-   - Preview de como ficará a notificação push
-   - Botão "Enviar para todos os alunos" com confirmação
-   - Indicador de progresso do envio
+2. **ModalCriarAviso — Rotinas automáticas:**
+   - Toggle "Enviar push quando disparada" → campo `enviarPush`
+   - Campo "Dados de deep link" → campo `dados`
 
-3. **Página de detalhes de uma notificação:**
-   - Dados da notificação (título, corpo, tipo, data)
-   - Estatísticas: total enviados, total lidos, % leitura
-   - Lista dos alunos que receberam (com status: lida/não lida, data de leitura)
+3. **ModalVerAviso — Estatísticas de push:**
+   - Total de destinatários
+   - Total de push enviados (pushEnviado: true)
+   - Total de lidos (visualizado: true)
+   - % de leitura
+   - Dados de deep link (se houver)
 
-Siga os padrões de UI/componentes existentes no painel admin. Analise como outras seções do admin são construídas (tabelas, formulários, modais) e use os mesmos componentes.
+4. **Listagem de avisos:**
+   - Ícone de push (Smartphone/Bell) se enviarPush === true
+   - Badge com contagem de envios e leituras
 
 ---
 
 ### INSTRUÇÕES
 
-- Analise primeiro os padrões existentes do projeto (autenticação, validação, componentes admin, etc.)
+- Analise primeiro os padrões existentes do projeto (autenticação mobile, validação Zod, componentes admin, sistema de Avisos/Rotinas)
 - Faça um PLANEJAMENTO completo antes de implementar
 - Identifique quais arquivos precisam ser criados e modificados
-- Considere a ordem de implementação (banco → serviço → endpoints → admin)
-- Use transações do banco quando criar notificação + notificacoes_alunos em batch
+- Considere a ordem de implementação (schema → migration → serviço → endpoints → integração → admin)
+- Use transações do banco quando criar AlunoAviso em batch
+- O campo `dados.route` deve conter rotas do Expo Router do app mobile (NÃO rotas do Next.js)
+- RESPEITE o contrato da API exatamente como descrito — o app mobile já valida com Zod e qualquer divergência causará erro de parsing
 ```
