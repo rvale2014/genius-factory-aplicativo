@@ -61,7 +61,7 @@ export default ({ config }: { config: ExpoConfig }) => ({
   android: {
     package: 'com.geniusfactory.app',
     versionCode: 6,
-    googleServicesFile: './google-services.json',
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#FFFFFF',
