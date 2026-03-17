@@ -32,6 +32,7 @@
     "expo-secure-store": "^15.0.7",
     "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
+    "expo-updates": "~29.0.16",
     "expo-video": "~3.0.14",
     "expo-web-browser": "~15.0.9",
     "jotai": "^2.15.1",

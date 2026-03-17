@@ -18,6 +18,14 @@ export default ({ config }: { config: ExpoConfig }) => ({
 
   icon: './assets/images/icon.png',
 
+  updates: {
+    url: 'https://u.expo.dev/a006cfa6-28a4-499a-bf02-9315c59c9383',
+  },
+
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
+
   plugins: [
     'expo-splash-screen',
     [
