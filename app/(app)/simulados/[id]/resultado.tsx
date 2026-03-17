@@ -97,7 +97,6 @@ export default function ResultadoScreen() {
         if (!active) return;
         setData(r);
         
-        // ✅ SEMPRE LIMPA O CONTEXTO PRIMEIRO
         setContextoTrilha(null);
 
         const contextoKey = `@geniusfactory:simulado-contexto-${id}`;
@@ -107,7 +106,6 @@ export default function ResultadoScreen() {
           try {
             const contexto = JSON.parse(contextoRaw);
 
-            // Valida se o contexto tem os campos necessários e válidos
             if (
               contexto &&
               typeof contexto === 'object' &&
@@ -138,29 +136,8 @@ export default function ResultadoScreen() {
     return () => { active = false; };
   }, [id]);
 
-  if (loading || !data) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top + 40 }]}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
-  const total = data.questoes.length;
-  const acertos = data.questoes.filter(q => q.acertou).length;
-  const erros = Math.max(0, total - acertos);
-  const perc = total > 0 ? Math.round((acertos / total) * 100) : 0;
-
-  const temDissertPend = data.questoes.some(q => q.tipo === "dissertativa" && q.avaliacaoStatus !== "ok");
-  const totalDissert = data.questoes.filter(q => q.tipo === "dissertativa").length;
-  const corrigidas = data.questoes.filter(q => q.tipo === "dissertativa" && q.avaliacaoStatus === "ok").length;
-  const prog = totalDissert > 0 ? Math.round((corrigidas / totalDissert) * 100) : 0;
-
-  // donut (dois arcos)
-  const coinsBase = 50;
-  const coinsTarget = coinsPorPercentual(perc);
-  const coinsExtra = Math.max(coinsTarget - coinsBase, 0);
-  const coinsReward = temDissertPend ? coinsBase : coinsTarget;
+  const total = data?.questoes?.length ?? 0;
+  const acertos = data?.questoes?.filter(q => q.acertou).length ?? 0;
 
   const donutConfig = React.useMemo(() => {
     const size = 180, cx = size / 2, cy = cx, r = 70;
@@ -173,6 +150,27 @@ export default function ResultadoScreen() {
     setIdxAtual(index);
     setOpenSheet(true);
   }, []);
+
+  if (loading || !data) {
+    return (
+      <View style={[styles.center, { paddingTop: insets.top + 40 }]}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  const erros = Math.max(0, total - acertos);
+  const perc = total > 0 ? Math.round((acertos / total) * 100) : 0;
+
+  const temDissertPend = data.questoes.some(q => q.tipo === "dissertativa" && q.avaliacaoStatus !== "ok");
+  const totalDissert = data.questoes.filter(q => q.tipo === "dissertativa").length;
+  const corrigidas = data.questoes.filter(q => q.tipo === "dissertativa" && q.avaliacaoStatus === "ok").length;
+  const prog = totalDissert > 0 ? Math.round((corrigidas / totalDissert) * 100) : 0;
+
+  const coinsBase = 50;
+  const coinsTarget = coinsPorPercentual(perc);
+  const coinsExtra = Math.max(coinsTarget - coinsBase, 0);
+  const coinsReward = temDissertPend ? coinsBase : coinsTarget;
 
   // ✅ NOVO: Encerrar simulado de trilha
   async function encerrarSimuladoTrilha() {
