@@ -16,6 +16,7 @@ export type Session = {
   refreshToken?: string;
   pinParentalPendente?: boolean;
   assinatura?: AssinaturaInfo;
+  timezone?: string;
 } | null;
 
 // PIN digitado entre telas (não persiste no SecureStore)

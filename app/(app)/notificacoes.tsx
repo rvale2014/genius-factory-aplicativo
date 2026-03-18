@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificacaoDetalheSheet from '../../components/notificacoes/NotificacaoDetalheSheet';
 import type { Notificacao } from '../../src/schemas/notificacoes';
 import {
   contarNaoLidas,
@@ -39,24 +40,7 @@ function getIconePorTipo(tipo: Notificacao['tipo']) {
   }
 }
 
-/** Calcula tempo relativo a partir de uma data ISO string */
-function tempoRelativo(dataISO: string): string {
-  const agora = Date.now();
-  const data = new Date(dataISO).getTime();
-  const diffMs = agora - data;
-
-  const minutos = Math.floor(diffMs / 60000);
-  const horas = Math.floor(diffMs / 3600000);
-  const dias = Math.floor(diffMs / 86400000);
-  const semanas = Math.floor(dias / 7);
-
-  if (minutos < 1) return 'agora';
-  if (minutos < 60) return `há ${minutos} min`;
-  if (horas < 24) return `há ${horas}h`;
-  if (dias < 7) return `há ${dias}d`;
-  if (semanas < 4) return `há ${semanas} sem`;
-  return new Date(dataISO).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-}
+import { tempoRelativo } from '../../src/lib/dateFormat';
 
 export default function NotificacoesScreen() {
   const router = useRouter();
@@ -69,6 +53,7 @@ export default function NotificacoesScreen() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [erro, setErro] = useState<string | null>(null);
+  const [notificacaoSelecionada, setNotificacaoSelecionada] = useState<Notificacao | null>(null);
   const mountedRef = useRef(true);
 
   const hasMore = notificacoes.length < total;
@@ -156,15 +141,27 @@ export default function NotificacoesScreen() {
       }
     }
 
-    // Navega para rota se existir
-    if (item.dados?.route && typeof item.dados.route === 'string') {
+    // Abre detalhe da notificação
+    setNotificacaoSelecionada(item);
+  }, [setNaoLidas]);
+
+  // Fechar detalhe
+  const handleFecharDetalhe = useCallback(() => {
+    setNotificacaoSelecionada(null);
+  }, []);
+
+  // Navegar a partir do detalhe
+  const handleNavegarDetalhe = useCallback(() => {
+    const rota = notificacaoSelecionada?.dados?.route;
+    setNotificacaoSelecionada(null);
+    if (rota && typeof rota === 'string') {
       try {
-        router.push(item.dados.route as any);
+        router.push(rota as any);
       } catch {
         // Rota inválida
       }
     }
-  }, [router, setNaoLidas]);
+  }, [notificacaoSelecionada, router]);
 
   // Marcar todas como lidas
   const handleMarcarTodasLidas = useCallback(async () => {
@@ -172,6 +169,8 @@ export default function NotificacoesScreen() {
       // Otimista
       setNotificacoes(prev => prev.map(n => ({ ...n, lida: true })));
       setNaoLidas(0);
+      // Zera badge do ícone do app
+      try { const N = require('expo-notifications'); N.setBadgeCountAsync(0); } catch {};
 
       await marcarTodasComoLidas();
     } catch {
@@ -306,6 +305,13 @@ export default function NotificacoesScreen() {
             </View>
           ) : null
         }
+      />
+
+      {/* Detalhe da notificação */}
+      <NotificacaoDetalheSheet
+        notificacao={notificacaoSelecionada}
+        onClose={handleFecharDetalhe}
+        onNavegar={handleNavegarDetalhe}
       />
     </SafeAreaView>
   );

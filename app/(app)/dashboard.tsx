@@ -19,6 +19,7 @@ import { CachedImage } from '../../components/CachedImage';
 import { GaugeChart } from '../../components/GaugeChart';
 import { DashboardSkeleton } from '@/components/skeleton/DashboardSkeleton';
 import { notificacoesNaoLidasAtom } from '../../src/state/notificacoes';
+import { contarNaoLidas } from '../../src/services/notificacoesService';
 import type { DashboardResponse } from '../../src/schemas/dashboard';
 import { primeAlunoHeaderCache } from '../../src/services/alunoHeaderService';
 import { obterDashboard } from '../../src/services/dashboardService';
@@ -48,6 +49,7 @@ export default function DashboardScreen() {
   const session = useAtomValue(sessionAtom);
   const setSession = useSetAtom(sessionAtom);
   const naoLidas = useAtomValue(notificacoesNaoLidasAtom);
+  const setNaoLidas = useSetAtom(notificacoesNaoLidasAtom);
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -111,7 +113,9 @@ export default function DashboardScreen() {
       if (initialLoadedRef.current) {
         carregarDashboard(true);
       }
-    }, [carregarDashboard])
+      // Atualiza badge de notificações ao focar no dashboard
+      contarNaoLidas().then(setNaoLidas).catch(() => {});
+    }, [carregarDashboard, setNaoLidas])
   );
 
   // ✅ ESTRATÉGIA 2: useEffect no mount (carregamento inicial)
@@ -246,7 +250,7 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Dashboard</Text>
           <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notificacoes')}>
-            <Ionicons name="notifications-outline" size={24} color="#333" />
+            <Ionicons name="notifications-outline" size={22} color="#FF5FDB" />
             {naoLidas > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>
@@ -719,12 +723,25 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Bold',
   },
   notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   notificationBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -2,
+    right: -2,
     backgroundColor: '#FF5FDB',
     borderRadius: 10,
     minWidth: 18,

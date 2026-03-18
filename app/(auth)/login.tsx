@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/lib/api';
+import { detectarTimezone } from '../../src/lib/timezone';
 import { pinTemporarioAtom, saveSession, sessionAtom } from '../../src/state/session';
 
 const { width } = Dimensions.get('window');
@@ -47,7 +48,8 @@ export default function LoginScreen(): React.ReactElement {
         return;
       }
 
-      const res = await api.post('/mobile/v1/auth/login', { email, senha });
+      const timezone = detectarTimezone();
+      const res = await api.post('/mobile/v1/auth/login', { email, senha, timezone });
       const { accessToken, refreshToken, pinParentalPendente, assinatura } = res.data;
 
       if (!accessToken || !refreshToken) {
@@ -65,16 +67,16 @@ export default function LoginScreen(): React.ReactElement {
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           // PIN correto — salva sessão sem pendência
-          await saveSession({ accessToken, refreshToken, assinatura });
-          setSession({ accessToken, refreshToken, assinatura });
+          await saveSession({ accessToken, refreshToken, assinatura, timezone });
+          setSession({ accessToken, refreshToken, assinatura, timezone });
           setPinTemporario(null);
           router.replace('/(app)/dashboard');
         } catch (pinErr: any) {
           const pinStatus = pinErr?.response?.status;
 
           // Salva sessão com pendência para tentar novamente na tela de PIN
-          await saveSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
-          setSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
+          await saveSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura, timezone });
+          setSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura, timezone });
           setPinTemporario(null);
 
           if (pinStatus === 403) {
@@ -87,13 +89,13 @@ export default function LoginScreen(): React.ReactElement {
         }
       } else if (pinParentalPendente) {
         // Sem PIN temporário — salva com pendência
-        await saveSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
-        setSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura });
+        await saveSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura, timezone });
+        setSession({ accessToken, refreshToken, pinParentalPendente: true, assinatura, timezone });
         router.replace('/(auth)/verificar-pin');
       } else {
         // Sem pendência de PIN
-        await saveSession({ accessToken, refreshToken, assinatura });
-        setSession({ accessToken, refreshToken, assinatura });
+        await saveSession({ accessToken, refreshToken, assinatura, timezone });
+        setSession({ accessToken, refreshToken, assinatura, timezone });
         setPinTemporario(null);
         router.replace('/(app)/dashboard');
       }

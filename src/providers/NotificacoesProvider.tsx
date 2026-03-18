@@ -60,8 +60,9 @@ function NotificacoesManager() {
     // 1. Registrar push token
     registrarToken();
 
-    // 2. Carregar contagem inicial de não-lidas
+    // 2. Carregar contagem inicial de não-lidas e zerar badge do ícone
     carregarNaoLidas();
+    Notifications.setBadgeCountAsync(0).catch(() => {});
 
     // 3. Listener: notificação recebida em foreground → incrementa badge
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {

@@ -1,8 +1,8 @@
 // src/components/performance/PerformanceChart.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { format, parseISO, startOfWeek } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, startOfWeek } from 'date-fns';
+import { formatarDataCurta } from '../../src/lib/dateFormat';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -38,8 +38,7 @@ function agregarDadosPorSemana(dados: PerformanceDiariaDia[]): PerformanceDiaria
   const porSemana: Record<string, { acertos: number; total: number }> = {};
 
   dados.forEach((dia) => {
-    const data = parseISO(dia.data);
-    const inicioSemana = format(startOfWeek(data, { weekStartsOn: 0 }), 'yyyy-MM-dd');
+    const inicioSemana = format(startOfWeek(new Date(dia.data), { weekStartsOn: 0 }), 'yyyy-MM-dd');
 
     if (!porSemana[inicioSemana]) {
       porSemana[inicioSemana] = { acertos: 0, total: 0 };
@@ -111,7 +110,7 @@ export function PerformanceChart({ materias }: PerformanceChartProps) {
   const chartData = useMemo(() => {
     return dadosProcessados.map((dia) => ({
       value: Math.max(0, dia.taxaAcertos), // Garante que valores não sejam negativos
-      label: format(parseISO(dia.data), 'dd/MM', { locale: ptBR }),
+      label: formatarDataCurta(dia.data),
       dataCompleta: dia.data,
       totalQuestoes: dia.totalQuestoes,
     }));

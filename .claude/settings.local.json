@@ -17,7 +17,8 @@
       "WebFetch(domain:hailey.at)",
       "WebFetch(domain:jdmunro.net)",
       "WebFetch(domain:unpkg.com)",
-      "WebFetch(domain:app.unpkg.com)"
+      "WebFetch(domain:app.unpkg.com)",
+      "Bash(find C:Usersrvalegenius-factory-aplicativo/src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))"
     ]
   }
 }

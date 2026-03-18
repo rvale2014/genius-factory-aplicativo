@@ -44,3 +44,6 @@ O App Store Connect é a plataforma da Apple para gerenciamento de aplicativos i
 
 8.3) **Update para iOS**
 **COMANDO**: npx eas-cli update --branch production --message "Descrição da correção"
+
+8.4) **Update Geral**
+**COMANDO**: eas update --environment production --message "Descrição da correção" 

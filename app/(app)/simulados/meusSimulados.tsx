@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { obterSimulados, type SimuladoItem } from '../../../src/services/simuladosService';
+import { formatarData } from '../../../src/lib/dateFormat';
 
 // Helper para obter o nome correto da fonte Inter baseado no fontWeight
 function getInterFont(fontWeight?: string | number): string {
@@ -24,15 +25,6 @@ function getInterFont(fontWeight?: string | number): string {
   if (weight >= 600) return 'Inter-SemiBold';
   if (weight >= 500) return 'Inter-Medium';
   return 'Inter-Regular';
-}
-
-// Formata a data para exibição
-function formatarData(dataISO: string): string {
-  const data = new Date(dataISO);
-  const dia = String(data.getDate()).padStart(2, '0');
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  const ano = data.getFullYear();
-  return `${dia}/${mes}/${ano}`;
 }
 
 export default function MeusSimuladosScreen() {

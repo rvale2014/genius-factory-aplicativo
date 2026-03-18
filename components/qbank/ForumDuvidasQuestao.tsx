@@ -1,5 +1,6 @@
 // components/ForumDuvidasQuestao.tsx
 import { api } from '@/src/lib/api';
+import { formatarDataHora } from '@/src/lib/dateFormat';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
@@ -95,13 +96,7 @@ export default function ForumDuvidasQuestao({ questaoId }: Props) {
 
   function renderDuvida({ item }: { item: Duvida }) {
     // ✅ Formatar data
-    const dataFormatada = new Date(item.createdAt).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const dataFormatada = formatarDataHora(item.createdAt);
 
     // ✅ Avatar do aluno
     const avatarUrl = item.aluno?.foto || item.aluno?.avatar?.imageUrl;
